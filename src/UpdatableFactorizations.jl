@@ -10,7 +10,7 @@ using TypeContracts
 using StrictMode
 
 export UpdatableCholesky, UpdatableLU, UpdatableQR
-export insert_column!, delete_column!, shift_columns!, insert_row!, delete_row!
+export insert_column!, try_insert_column!, delete_column!, shift_columns!, insert_row!, delete_row!
 export qr_householder
 export cholesky_crout, lu_crout, qr_bcgs
 export cholesky_crout!, lu_crout!, qr_bcgs!

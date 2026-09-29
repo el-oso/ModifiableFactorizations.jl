@@ -184,7 +184,9 @@ function delete_row!(
             )
         )
     end
-    z ./= g
+    for k in eachindex(z)
+        z[k] /= g
+    end
     QA = _augmented(q)
     RA = _raug(F)
     for k in n:-1:1
@@ -313,7 +315,9 @@ function LinearAlgebra.lowrankupdate!(
     rho = _project!(w, r, Qa, corr)
     RA = _raug(F)
     if m > n && rho > n * eps(real(T)) * unrm
-        r ./= rho
+        for k in eachindex(r)
+            r[k] /= rho
+        end
         z[n + 1] = rho
         last = n + 1
     else
@@ -342,11 +346,12 @@ function LinearAlgebra.lowrankupdate!(
             colnorm = norm(view(RS, 1:j, j))
             abs(RS[j, j]) > rtol * colnorm && continue
             fill!(r, zero(T))
+            # `lazy"..."` keeps the message's formatting out of this method's compiled body.
+            rjj = abs(RS[j, j])
+            bound = rtol * colnorm
             throw(
                 ArgumentError(
-                    "column $j of the updated factorization is rank deficient: " *
-                        "abs(R[$j,$j]) = $(abs(RS[j, j])) is at or below " *
-                        "rtol * norm(column $j) = $(rtol * colnorm)"
+                    lazy"column $j of the updated factorization is rank deficient: abs(R[$j,$j]) = $rjj is at or below rtol * norm(column $j) = $bound"
                 )
             )
         end
@@ -385,6 +390,44 @@ function insert_column!(
         F::UpdatableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector;
         rtol::Real = sqrt(eps(real(T)))
     ) where {T, S}
+    inserted, rho = _insert_column!(F, j, x, rtol)
+    inserted ||
+        throw(ArgumentError("column $j lies in the range of the existing columns: rho = $rho"))
+    return F
+end
+
+"""
+    try_insert_column!(F::UpdatableQR, j, x; rtol = sqrt(eps(real(T)))) -> Bool
+
+Insert `x` as column `j`, or report that it lies in the range of the columns already there.
+
+`true` when the column was inserted. `false` when the part of `x` orthogonal to the existing
+columns has norm at or below `rtol * norm(x)`, and then `F` is what it was: the same
+condition [`insert_column!`](@ref) throws on, for a caller that must branch on it rather than
+raise. Reaching a dependent column is the ordinary course of an active-set method, which
+tries a column, finds the working set cannot take it, and does something else; and raising
+inside a loop that guarantees it allocates nothing is not open to it, because an exception
+does.
+
+Rank deficiency is the only outcome reported this way. An index out of range, a length that
+does not match, or a factorization already square are all mistakes in the call rather than
+facts about the column, and still throw.
+"""
+function try_insert_column!(
+        F::UpdatableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector;
+        rtol::Real = sqrt(eps(real(T)))
+    ) where {T, S}
+    inserted, _ = _insert_column!(F, j, x, rtol)
+    return inserted
+end
+
+# The insertion both verbs above perform, reporting rather than raising: `(inserted, rho)`,
+# where `rho` is the norm of the part of `x` orthogonal to the existing columns -- the new
+# diagonal entry of `R`, and the quantity the rank test reads. `F` is untouched when
+# `inserted` is false.
+function _insert_column!(
+        F::UpdatableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector, rtol::Real
+    ) where {T, S}
     m, n = F.m, F.n
     1 <= j <= n + 1 || throw(BoundsError(F, j))
     length(x) == m ||
@@ -410,9 +453,11 @@ function insert_column!(
         # The projection built the candidate direction in the augmentation column. Clearing it
         # is what leaves the factorization as it was, and the next verb builds there.
         _clearspare!(q)
-        throw(ArgumentError("column $j lies in the range of the existing columns: rho = $rho"))
+        return (false, rho)
     end
-    r ./= rho
+    for k in eachindex(r)
+        r[k] /= rho
+    end
     # Growth comes after the guard, so a rejected insertion does not change the capacity.
     # `_grow!` carries the augmentation column into the new buffer, so the direction built
     # through `r` survives; the view itself does not, and nothing below reads it. `w` stays
@@ -425,10 +470,10 @@ function insert_column!(
     R[n + 1, n + 1] = rho
     F.n = n + 1
     q.n = n + 1
-    j != n + 1 && return shift_columns!(F, n + 1, Int(j))
+    j != n + 1 && shift_columns!(F, n + 1, Int(j))
     # Growing into the new column and row moves into storage the invariant already guaranteed
     # was zero, so appending at the end leaves nothing outside the active block to clear.
-    return F
+    return (true, rho)
 end
 
 """

@@ -938,3 +938,69 @@ end
         @test norm(F.Q' * F.Q - I) < 1.0e-12
     end
 end
+
+@testitem "try_insert_column! reports rank deficiency instead of raising" begin
+    using LinearAlgebra, Random
+
+    Random.seed!(20260930)
+    m, n = 9, 5
+    A = randn(m, n)
+    F = UpdatableQR(A; capacity = (m, n))
+
+    # The column an active-set method is entitled to try and be told no: an exact copy of one
+    # already factored. `insert_column!` throws on it; this reports it, and leaves behind the
+    # same factorization the throwing verb does.
+    @test try_insert_column!(F, 2, A[:, 1]) == false
+    @test size(F) == (m, n)
+    @test UpdatableFactorizations.capacity(F) == (m, n)
+    @test norm(F.Q * F.R - A) / norm(A) < 1.0e-12
+    qb = getfield(F, :qrep).buf
+    @test all(iszero, view(qb, :, (F.n + 1):size(qb, 2)))
+
+    # A column that is independent goes in, and the factorization is the one the throwing verb
+    # would have produced.
+    x = randn(m)
+    G = UpdatableQR(A; capacity = (m, n + 1))
+    @test try_insert_column!(G, n + 1, x) == true
+    @test size(G) == (m, n + 1)
+    @test norm(G.Q * G.R - hcat(A, x)) / norm(hcat(A, x)) < 1.0e-12
+
+    H = UpdatableQR(A; capacity = (m, n + 1))
+    insert_column!(H, n + 1, x)
+    @test norm(G.Q * G.R - H.Q * H.R) / norm(H.Q * H.R) < 1.0e-12
+
+    # Inserting anywhere but the end, which shifts the columns after it.
+    K = UpdatableQR(A; capacity = (m, n + 1))
+    @test try_insert_column!(K, 2, x) == true
+    @test norm(K.Q * K.R - hcat(A[:, 1], x, A[:, 2:end])) / norm(A) < 1.0e-12
+
+    # `rtol` is the caller's: a looser one refuses a column it would otherwise take.
+    L = UpdatableQR(A; capacity = (m, n + 1))
+    @test try_insert_column!(L, n + 1, x; rtol = 1.0) == false
+    @test size(L) == (m, n)
+
+    # A mistake in the call is not a fact about the column, and still throws.
+    @test_throws BoundsError try_insert_column!(F, 99, randn(m))
+    @test_throws DimensionMismatch try_insert_column!(F, 2, randn(m + 1))
+end
+
+@testitem "try_insert_column! allocates nothing on either outcome" begin
+    using LinearAlgebra, Random, StrictModeTest
+
+    Random.seed!(20260930)
+    m, n = 9, 5
+    A = randn(m, n)
+    x = randn(m)
+
+    # Both outcomes measured on a warm call: this is the verb an allocation-free solve loop
+    # calls, and the branch it takes depends on the data rather than on the caller.
+    refused = UpdatableQR(A; capacity = (m, n))
+    dup = A[:, 1]
+    try_insert_column!(refused, 2, dup)
+    @test iszero(@allocated try_insert_column!(refused, 2, dup))
+
+    taken = UpdatableQR(A; capacity = (m, n + 1))
+    try_insert_column!(taken, n + 1, x)
+    delete_column!(taken, n + 1)
+    @test iszero(@allocated try_insert_column!(taken, n + 1, x))
+end
