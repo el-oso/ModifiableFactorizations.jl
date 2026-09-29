@@ -241,16 +241,10 @@ Matrix(G) ≈ [3.0 1.0; 0.0 5.0e-10; 0.0 0.0]
 
 `lowrankupdate!` is the one QR verb guarded by `@strict`, StrictMode's type-stability and
 allocation-freedom check — the same guard covers Cholesky's `lowrankupdate!` and
-`lowrankdowndate!` and LU's `lowrankupdate!`. With `StrictMode.checks_enabled()` true — the
-setting this package's own test suite develops under — the guard's own reflection is real
-compiled code in the guarded body, and it allocates about 4240 bytes of StrictMode's own
-bookkeeping per call in steady state, independent of `F`'s size. The first call to a given method
-signature is far larger, because the scan is cached per signature rather than repeated: about
-31.9 MB for Cholesky and 4.14 MB for LU. With `checks_enabled` false — the configuration a
-shipped build sets — that guard expands to the bare call, and the measured allocation is exactly
-zero on every call, including the first, for Cholesky, LU and QR. Both figures describe the
-guard, not the underlying kernel, which is allocation-free either way. The other five QR verbs
-carry no `@strict` guard and measure zero bytes regardless of this setting.
+`lowrankdowndate!` and LU's `lowrankupdate!`. After the first call to a given method signature,
+every updating verb allocates nothing, whether `StrictMode.checks_enabled()` is true or false.
+With `checks_enabled` false — the configuration a shipped build sets — the guard expands to the
+bare call.
 
 ## QR column insertion
 

@@ -478,16 +478,13 @@ end
         lowrankupdate!(F, u, v; rtol = 0.0)   # warm: compile before measuring
         G = UpdatableQR(A)
         bytes0 = @allocated lowrankupdate!(G, u, v; rtol = 0.0)
-        # `@strict` guards `_absorb_spike!`'s call in `lowrankupdate!`: with checks enabled (the
-        # default this suite runs under), the guard's own reflection allocates. The kernel is
-        # allocation-free with checks disabled, which is the configuration a shipped build sets.
-        @test_broken iszero(bytes0)
+        @test iszero(bytes0)
 
         H = UpdatableQR(A)
         lowrankupdate!(H, u, v)               # warm the default-rtol path separately
         K = UpdatableQR(A)
         bytesdefault = @allocated lowrankupdate!(K, u, v)
-        @test_broken iszero(bytesdefault)
+        @test iszero(bytesdefault)
     end
 end
 

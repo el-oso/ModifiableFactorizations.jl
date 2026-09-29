@@ -5,15 +5,8 @@
     G = UpdatableLU(lu(randn(n, n) + n * I))
     u = randn(n)
     v = randn(n)
-    # `@strict` guards `_bennett!`'s call in `lowrankupdate!`: with `StrictMode.checks_enabled()`
-    # true (the default this suite runs under), the guard's own reflection is real compiled code
-    # in `lowrankupdate!`'s body, so JET reports the guard's internal dispatch as instability and
-    # AllocCheck reports its bookkeeping as allocation. Both checks are of the guard, not the
-    # kernel it guards. Both guarantees are proven with checks disabled — the configuration a
-    # shipped build sets — by "updating verbs allocate nothing and are type stable with checks
-    # disabled" below.
-    @test_broken (@test_typestable(lowrankupdate!(G, u, v)); true)
-    @test_broken (@test_noalloc(lowrankupdate!(G, u, v)); true)
+    @test_typestable lowrankupdate!(G, u, v)
+    @test_noalloc lowrankupdate!(G, u, v)
 end
 
 @testitem "Cholesky rank-1 update and downdate are type stable and allocate nothing" begin
@@ -23,17 +16,10 @@ end
     B = randn(n, n)
     mk() = UpdatableCholesky(cholesky(Symmetric(B * B' + n * I)))
     v = randn(n) ./ 4
-    # `@strict` guards `_ch1up!`'s call in `lowrankupdate!` and `_ch1dn!`'s call in
-    # `lowrankdowndate!`: with checks enabled (the default this suite runs under), each guard's
-    # own reflection is real compiled code in its host function's body, so JET reports the
-    # guard's internal dispatch as instability and AllocCheck reports its bookkeeping as
-    # allocation. Both guarantees for both kernels are proven with checks disabled — the
-    # configuration a shipped build sets — by "updating verbs allocate nothing and are type
-    # stable with checks disabled" below.
-    @test_broken (@test_typestable(lowrankupdate!(mk(), v)); true)
-    @test_broken (@test_noalloc(lowrankupdate!(mk(), v)); true)
-    @test_broken (@test_typestable(lowrankdowndate!(mk(), v)); true)
-    @test_broken (@test_noalloc(lowrankdowndate!(mk(), v)); true)
+    @test_typestable lowrankupdate!(mk(), v)
+    @test_noalloc lowrankupdate!(mk(), v)
+    @test_typestable lowrankdowndate!(mk(), v)
+    @test_noalloc lowrankdowndate!(mk(), v)
 end
 
 @testitem "updating verbs allocate nothing and are type stable with checks disabled" begin
@@ -282,13 +268,7 @@ end
         )
     end
     for T in (Float64, ComplexF64)
-        bytes = measure(T, 80, 50)
-        # `lowrankupdate!` carries `@strict`'s own reflection cost with checks enabled (the
-        # default this suite runs under); with checks disabled it allocates nothing too, proven
-        # by "updating verbs allocate nothing and are type stable with checks disabled" below.
-        # Every other verb here is unguarded and stays exactly zero regardless of the preference.
-        @test_broken iszero(bytes[1])
-        @test bytes[2:end] == (0, 0, 0, 0, 0)
+        @test measure(T, 80, 50) == (0, 0, 0, 0, 0, 0)
     end
 end
 
@@ -301,14 +281,8 @@ end
         F = UpdatableQR(randn(T, m, n))
         u = randn(T, m)
         v = randn(T, n)
-        # `@strict` guards `_absorb_spike!`'s call in `lowrankupdate!`: with checks enabled (the
-        # default this suite runs under), the guard's own reflection is real compiled code in
-        # `lowrankupdate!`'s body, so JET reports its internal dispatch as instability and
-        # AllocCheck reports its bookkeeping as allocation. Both guarantees are proven with checks
-        # disabled — the configuration a shipped build sets — by "updating verbs allocate nothing
-        # and are type stable with checks disabled" below.
-        @test_broken (@test_typestable(lowrankupdate!(F, u, v)); true)
-        @test_broken (@test_noalloc(lowrankupdate!(F, u, v)); true)
+        @test_typestable lowrankupdate!(F, u, v)
+        @test_noalloc lowrankupdate!(F, u, v)
         G = UpdatableQR(randn(T, m, n))
         @test_typestable delete_row!(G, 3)
         H = UpdatableQR(randn(T, m, n))
@@ -485,9 +459,7 @@ end
 @testitem "unguarded verbs keep their type-stability and allocation guarantees" begin
     using LinearAlgebra, StrictModeTest
     # Signatures, not values: the sweep proves the guarantee for a concrete specialization
-    # without constructing one. The rank-1 update verbs are absent on purpose — each carries a
-    # `@strict` guard whose own reflection is compiled into the caller, which is what the
-    # `@test_broken` items above record.
+    # without constructing one. The rank-1 update verbs are proven on values by the items above.
     for T in (Float64, ComplexF64)
         Q = UpdatableQR{T, Matrix{T}, UpdatableFactorizations.DenseQ{T, Matrix{T}}}
         C = UpdatableCholesky{T, real(T), Matrix{T}}

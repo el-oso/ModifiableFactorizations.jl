@@ -5,13 +5,8 @@ using LinearAlgebra: givensAlgorithm, Givens, PosDefException, ZeroPivotExceptio
 import LinearAlgebra: lowrankupdate!, lowrankdowndate!, ldiv!, logdet, det
 using TypeContracts
 # `@strict` (type-stability + no owned-scratch dictionary lookups + allocation-freedom) guards
-# the QR, Cholesky and LU rank-1 kernels below. With `StrictMode.checks_enabled()` true (the
-# default, and the state ordinary development and CI run in), each guarded call's own
-# reflection has a real, fixed cost — several kilobytes and a dynamic dispatch — so
-# `@allocated`/`@test_noalloc`/`@test_typestable` measure that reflection, not the kernel, and
-# a raw allocation or JET check against the wrapped call is expected to see it. The guarantee
-# only reduces to the bare kernel call, with none of that cost, once `checks_enabled` is false —
-# the configuration a shipped build sets.
+# the QR, Cholesky and LU rank-1 kernels below. A guarded call is itself type stable and
+# allocation-free, so the verbs that host one keep both guarantees with checks enabled.
 using StrictMode
 
 export UpdatableCholesky, UpdatableLU, UpdatableQR
