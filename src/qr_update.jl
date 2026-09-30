@@ -377,8 +377,10 @@ below `rtol * norm(x)`: `rho` scales with `x`, so the threshold is relative, and
 tests lies in `[0, 1]`. A column that lies in the range of the existing ones leaves the
 factorization exact but its last diagonal entry at the level of rounding noise, so a solve
 through it divides by noise. `rtol = 0` admits every column whose residual is nonzero, which an
-exactly dependent column is: measured, an exact copy of an existing column leaves `rho` at
-1.95e-16 rather than at zero.
+exactly dependent column usually is: measured, an exact copy of an existing column leaves `rho`
+at 1.95e-16 rather than at zero. It admits a residual of exactly zero too: the new diagonal
+entry of `R` is then zero, and the new column of `Q` is a unit vector orthogonal to the others.
+A `NaN` residual is refused at every `rtol`.
 
 `DimensionMismatch` is thrown when the factorization is square, because the type admits only
 `m >= n`.
@@ -402,7 +404,8 @@ end
 Insert `x` as column `j`, or report that it lies in the range of the columns already there.
 
 `true` when the column was inserted. `false` when the part of `x` orthogonal to the existing
-columns has norm at or below `rtol * norm(x)`, and then `F` is what it was: the same
+columns has norm at or below `rtol * norm(x)` (at `rtol = 0`, only when that norm is `NaN`;
+see [`insert_column!`](@ref)), and then `F` is what it was: the same
 condition [`insert_column!`](@ref) throws on, for a caller that must branch on it rather than
 raise. Reaching a dependent column is the ordinary course of an active-set method, which
 tries a column, finds the working set cannot take it, and does something else; and raising
@@ -449,14 +452,18 @@ function _insert_column!(
     end
     xnrm = norm(r)
     rho = _project!(w, r, Qa, corr)
-    if !(rho > rtol * xnrm)
+    # `iszero` rather than a negated comparison, so a `NaN` residual is refused at every `rtol`.
+    zeroresidual = iszero(rtol) && iszero(rho)
+    if !(rho > rtol * xnrm) && !zeroresidual
         # The projection built the candidate direction in the augmentation column. Clearing it
         # is what leaves the factorization as it was, and the next verb builds there.
         _clearspare!(q)
         return (false, rho)
     end
-    for k in eachindex(r)
-        r[k] /= rho
+    if !zeroresidual
+        for k in eachindex(r)
+            r[k] /= rho
+        end
     end
     # Growth comes after the guard, so a rejected insertion does not change the capacity.
     # `_grow!` carries the augmentation column into the new buffer, so the direction built
@@ -468,6 +475,12 @@ function _insert_column!(
         R[k, n + 1] = w[k]
     end
     R[n + 1, n + 1] = rho
+    # A zero-residual column fixes no direction of its own: `Q[:, n+1]` is multiplied only by
+    # `R[n+1, n+1]`, which is that zero residual, so `Q R` reproduces the column whatever unit
+    # vector sits there. Any vector orthogonal to the columns held will do, and
+    # `_complete_column!` builds one, which is what keeps `Q` orthonormal. `w` is scratch to it
+    # and has been copied into `R` already.
+    zeroresidual && _complete_column!(q, w, corr)
     F.n = n + 1
     q.n = n + 1
     j != n + 1 && shift_columns!(F, n + 1, Int(j))

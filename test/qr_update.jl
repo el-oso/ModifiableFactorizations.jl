@@ -1005,3 +1005,54 @@ end
     delete_column!(taken, n + 1)
     @test iszero(@allocated try_insert_column!(taken, n + 1, x))
 end
+
+@testitem "insert_column! at rtol = 0 admits a zero-residual column" begin
+    using LinearAlgebra
+
+    m, n = 7, 3
+    for T in (Float64, ComplexF64)
+        # Coordinate columns factor exactly, so reinserting one of them, or inserting a zero
+        # column, leaves a residual of exactly zero rather than rounding noise.
+        E = Matrix{T}(I, m, n)
+        for x in (E[:, 2], zeros(T, m))
+            F = UpdatableQR(E; capacity = (m, n + 1))
+            @test try_insert_column!(F, n + 1, x; rtol = 0) == true
+            @test size(F) == (m, n + 1)
+            @test iszero(F.R[n + 1, n + 1])
+            @test norm(F.Q' * F.Q - I) < 1.0e-14
+            @test norm(F.Q * F.R - hcat(E, x)) < 1.0e-14
+            @test all(iszero, view(getfield(F, :qrep).buf, :, (F.n + 1):size(getfield(F, :qrep).buf, 2)))
+        end
+        # Inserting before the column it duplicates shifts the dependency later, where the
+        # rotations that restore triangularity carry it.
+        K = UpdatableQR(E; capacity = (m, n + 1))
+        @test try_insert_column!(K, 2, E[:, 2]; rtol = 0) == true
+        @test norm(K.Q' * K.Q - I) < 1.0e-14
+        @test norm(K.Q * K.R - hcat(E[:, 1], E[:, 2], E[:, 2:n])) < 1.0e-14
+
+        # Any positive `rtol` still refuses the same column.
+        G = UpdatableQR(E; capacity = (m, n + 1))
+        @test try_insert_column!(G, 2, E[:, 2]) == false
+        @test_throws "lies in the range of the existing columns" insert_column!(G, 2, E[:, 2])
+
+        # A non-finite column is refused at every `rtol`, and the factorization is unchanged.
+        H = UpdatableQR(E; capacity = (m, n + 1))
+        bad = fill(T(NaN), m)
+        @test try_insert_column!(H, 2, bad; rtol = 0) == false
+        @test size(H) == (m, n)
+        @test norm(H.Q * H.R - E) < 1.0e-14
+        @test_throws "rho = NaN" insert_column!(H, 2, bad; rtol = 0)
+    end
+end
+
+@testitem "insert_column! at rtol = 0 allocates nothing on a zero-residual column" begin
+    using LinearAlgebra
+
+    m, n = 7, 3
+    E = Matrix{Float64}(I, m, n)
+    x = E[:, 2]
+    F = UpdatableQR(E; capacity = (m, n + 1))
+    try_insert_column!(F, 2, x; rtol = 0)           # warm
+    delete_column!(F, 2)
+    @test iszero(@allocated try_insert_column!(F, 2, x; rtol = 0))
+end

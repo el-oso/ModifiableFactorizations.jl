@@ -107,4 +107,36 @@ end
 
 _clearspare!(q::DenseQ{T}) where {T} = (fill!(_spare(q), zero(T)); q)
 
+# Fill the augmentation column with a unit vector orthogonal to the `n` columns held, for a
+# column inserted at zero residual, which fixes no direction of its own.
+#
+# The coordinate direction those columns represent least is the starting point. One always has
+# a residual: the squared row norms of an orthonormal `Qa` sum to `n`, so the smallest of the
+# `m` of them is at most `n / m`, leaving a residual of at least `1 - n / m`, positive because
+# `m > n`. `w` and `corr` are scratch.
+function _complete_column!(q::DenseQ{T}, w, corr) where {T}
+    Qa = _active(q)
+    r = _spare(q)
+    m, n = size(Qa)
+    # `Qa` is orthonormal, so no squared row norm exceeds one and this sentinel is above them all.
+    j, least = 1, 2 * one(real(T))
+    for i in 1:m
+        s = zero(real(T))
+        for c in 1:n
+            s += abs2(Qa[i, c])
+        end
+        if s < least
+            least = s
+            j = i
+        end
+    end
+    fill!(r, zero(T))
+    r[j] = one(T)
+    rho = _project!(w, r, Qa, corr)
+    for k in eachindex(r)
+        r[k] /= rho
+    end
+    return q
+end
+
 @verify DenseQ
