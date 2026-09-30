@@ -1,5 +1,5 @@
 """
-    lowrankupdate!(F::UpdatableLU, u, v; rtol = 0) -> F
+    lowrankupdate!(F::ModifiableLU, u, v; rtol = 0) -> F
 
 Replace the factorization of `A` with that of `A + u*v'` in `O(n^2)` operations. Neither `u` nor
 `v` is modified. The permutation is retained rather than recomputed, so a pivot that becomes
@@ -19,7 +19,7 @@ LU-factorizations subject to low rank modifications*, ETNA 26 (2007), 161-177, i
 update in the permuted frame.
 """
 function LinearAlgebra.lowrankupdate!(
-        F::UpdatableLU{T}, u::AbstractVector,
+        F::ModifiableLU{T}, u::AbstractVector,
         v::AbstractVector; rtol::Real = 0
     ) where {T}
     _checkvalid(F)

@@ -1,8 +1,8 @@
-abstract type AbstractUpdatableLU{T} <: Factorization{T} end
+abstract type AbstractModifiableLU{T} <: Factorization{T} end
 
 """
-    UpdatableLU(G::LU)
-    UpdatableLU(A::AbstractMatrix; pivot = RowMaximum())
+    ModifiableLU(G::LU)
+    ModifiableLU(A::AbstractMatrix; pivot = RowMaximum())
 
 LU factorization that supports rank-1 update. Stored as `P*A = L*Diagonal(d)*U` with `L` unit
 lower triangular and `U` unit upper triangular; `F.L` and `F.U` return fresh copies of the
@@ -12,7 +12,7 @@ A failed update leaves the factorization invalid: `issuccess(F)` is then `false`
 the column at which the update failed, and solving with or taking the determinant of `F`
 throws. An invalid factorization can only be rebuilt, not repaired.
 """
-mutable struct UpdatableLU{T, S <: AbstractMatrix{T}} <: AbstractUpdatableLU{T}
+mutable struct ModifiableLU{T, S <: AbstractMatrix{T}} <: AbstractModifiableLU{T}
     Lf::S
     d::Vector{T}
     # The transpose of the unit upper triangular factor: `Ut[j, k] == U-factor[k, j]`. Stored
@@ -24,7 +24,7 @@ mutable struct UpdatableLU{T, S <: AbstractMatrix{T}} <: AbstractUpdatableLU{T}
     info::Int
 end
 
-function UpdatableLU(G::LU{T}) where {T}
+function ModifiableLU(G::LU{T}) where {T}
     n = size(G, 1)
     Lf = Matrix(UnitLowerTriangular(G.factors))
     U = Matrix(UpperTriangular(G.factors))
@@ -37,29 +37,29 @@ function UpdatableLU(G::LU{T}) where {T}
         end
     end
     # `work` holds both of the rank-1 update's consumed vectors, so the update allocates nothing.
-    return UpdatableLU{T, Matrix{T}}(Lf, d, Ut, collect(G.p), zeros(T, 2n), 0)
+    return ModifiableLU{T, Matrix{T}}(Lf, d, Ut, collect(G.p), zeros(T, 2n), 0)
 end
 
-UpdatableLU(A::AbstractMatrix; pivot = RowMaximum()) = UpdatableLU(lu(A, pivot))
+ModifiableLU(A::AbstractMatrix; pivot = RowMaximum()) = ModifiableLU(lu(A, pivot))
 
-Base.size(F::UpdatableLU) = (length(getfield(F, :d)), length(getfield(F, :d)))
-function Base.size(F::UpdatableLU, dim::Integer)
+Base.size(F::ModifiableLU) = (length(getfield(F, :d)), length(getfield(F, :d)))
+function Base.size(F::ModifiableLU, dim::Integer)
     dim < 1 && throw(ArgumentError("dimension must be positive, got $dim"))
     return dim <= 2 ? length(getfield(F, :d)) : 1
 end
 
-function Base.getproperty(F::UpdatableLU, s::Symbol)
+function Base.getproperty(F::ModifiableLU, s::Symbol)
     s === :L && return UnitLowerTriangular(copy(getfield(F, :Lf)))
     s === :U && return UpperTriangular(getfield(F, :d) .* transpose(getfield(F, :Ut)))
     return getfield(F, s)
 end
 
-Base.propertynames(::UpdatableLU, private::Bool = false) =
-    private ? (:L, :U, fieldnames(UpdatableLU)...) : (:L, :U, :p, :info)
+Base.propertynames(::ModifiableLU, private::Bool = false) =
+    private ? (:L, :U, fieldnames(ModifiableLU)...) : (:L, :U, :p, :info)
 
-LinearAlgebra.issuccess(F::UpdatableLU) = iszero(getfield(F, :info))
+LinearAlgebra.issuccess(F::ModifiableLU) = iszero(getfield(F, :info))
 
-function _checkvalid(F::UpdatableLU)
+function _checkvalid(F::ModifiableLU)
     info = getfield(F, :info)
     iszero(info) || throw(
         ArgumentError(
@@ -69,7 +69,7 @@ function _checkvalid(F::UpdatableLU)
     return nothing
 end
 
-function LinearAlgebra.ldiv!(F::UpdatableLU, B::AbstractVecOrMat)
+function LinearAlgebra.ldiv!(F::ModifiableLU, B::AbstractVecOrMat)
     _checkvalid(F)
     p = getfield(F, :p)
     for c in axes(B, 2)
@@ -81,16 +81,16 @@ function LinearAlgebra.ldiv!(F::UpdatableLU, B::AbstractVecOrMat)
     return B
 end
 
-Base.AbstractMatrix(F::UpdatableLU) = (F.L * F.U)[invperm(getfield(F, :p)), :]
-Base.Matrix(F::UpdatableLU) = Matrix(AbstractMatrix(F))
+Base.AbstractMatrix(F::ModifiableLU) = (F.L * F.U)[invperm(getfield(F, :p)), :]
+Base.Matrix(F::ModifiableLU) = Matrix(AbstractMatrix(F))
 
-function LinearAlgebra.det(F::UpdatableLU{T}) where {T}
+function LinearAlgebra.det(F::ModifiableLU{T}) where {T}
     _checkvalid(F)
     v = prod(getfield(F, :d); init = one(T))
     return isodd(_permutation_parity(getfield(F, :p))) ? -v : v
 end
 
-function LinearAlgebra.logabsdet(F::UpdatableLU{T}) where {T}
+function LinearAlgebra.logabsdet(F::ModifiableLU{T}) where {T}
     _checkvalid(F)
     m = zero(real(T))
     s = isodd(_permutation_parity(getfield(F, :p))) ? -one(T) : one(T)
@@ -101,7 +101,7 @@ function LinearAlgebra.logabsdet(F::UpdatableLU{T}) where {T}
     return m, s
 end
 
-LinearAlgebra.logdet(F::UpdatableLU) = ((m, s) = logabsdet(F); m + log(s))
+LinearAlgebra.logdet(F::ModifiableLU) = ((m, s) = logabsdet(F); m + log(s))
 
 function _permutation_parity(p::AbstractVector{Int})
     q = collect(p)

@@ -1,4 +1,4 @@
-@testitem "UpdatableLU reconstructs its matrix" begin
+@testitem "ModifiableLU reconstructs its matrix" begin
     using LinearAlgebra, Random
     Random.seed!(20260908)
     for T in (Float64, ComplexF64), pivot in (true, false)
@@ -9,7 +9,7 @@
             randn(T, n, n) + n * I
         end
         G = pivot ? lu(A) : lu(A, NoPivot())
-        F = UpdatableLU(G)
+        F = ModifiableLU(G)
         @test norm(F.L * F.U - A[F.p, :]) / norm(A) < 1.0e-12
         @test size(F) == (n, n)
         if pivot
@@ -18,24 +18,24 @@
     end
 end
 
-@testitem "UpdatableLU solves" begin
+@testitem "ModifiableLU solves" begin
     using LinearAlgebra, Random
     Random.seed!(20260908)
     n = 6
     A = randn(n, n)
     b = randn(n)
-    F = UpdatableLU(lu(A))
+    F = ModifiableLU(lu(A))
     @test norm(A * (F \ b) - b) / norm(b) < 1.0e-11
     @test F.p != 1:n
 end
 
-@testitem "UpdatableLU properties, reconstruction and determinant" begin
+@testitem "ModifiableLU properties, reconstruction and determinant" begin
     using LinearAlgebra, Random
     Random.seed!(20260908)
     for T in (Float64, ComplexF64)
         n = 5
         A = randn(T, n, n)
-        F = UpdatableLU(lu(A))
+        F = ModifiableLU(lu(A))
         @test norm(Matrix(F) - A) / norm(A) < 1.0e-12
         @test F.U isa UpperTriangular
         @test norm(F.L * F.U - A[F.p, :]) / norm(A) < 1.0e-12
@@ -52,19 +52,19 @@ end
     end
 end
 
-@testitem "UpdatableLU solves integer and matrix right-hand sides" begin
+@testitem "ModifiableLU solves integer and matrix right-hand sides" begin
     using LinearAlgebra, Random
     Random.seed!(20260908)
     A = randn(3, 3)
-    F = UpdatableLU(lu(A))
+    F = ModifiableLU(lu(A))
     @test norm(A * (F \ [1, 2, 3]) - [1, 2, 3]) < 1.0e-10
     @test norm(A * (F \ Matrix(1.0I, 3, 3)) - I) < 1.0e-10
     @test norm(inv(F) - inv(A)) < 1.0e-10
 end
 
-@testitem "UpdatableLU at size zero" begin
+@testitem "ModifiableLU at size zero" begin
     using LinearAlgebra
-    F = UpdatableLU(lu(zeros(0, 0)))
+    F = ModifiableLU(lu(zeros(0, 0)))
     @test size(F) == (0, 0)
     @test size(F, 3) == 1
     @test det(F) == 1

@@ -67,7 +67,7 @@ end
     @test any(r -> r["variant"] == "recompute", ROWS)
     @test all(
         r -> iszero(r["median_bytes"]),
-        filter(r -> r["variant"] == "UpdatableFactorizations", ROWS)
+        filter(r -> r["variant"] == "ModifiableFactorizations", ROWS)
     )
     empty!(ROWS)
 end
@@ -86,12 +86,12 @@ end
     @test any(r -> r["variant"] == "QRupdatesFast", ROWS)
     @test all(
         r -> iszero(r["median_bytes"]),
-        filter(r -> r["variant"] == "UpdatableFactorizations", ROWS)
+        filter(r -> r["variant"] == "ModifiableFactorizations", ROWS)
     )
     empty!(ROWS)
 end
 
-# UpdatableFactorizations ships only DenseQ; there is no second Q representation to benchmark
+# ModifiableFactorizations ships only DenseQ; there is no second Q representation to benchmark
 # alongside it, so every QR row below compares DenseQ against the prior-art packages and
 # recomputing from scratch.
 @testset "qr cells" begin
@@ -123,7 +123,7 @@ end
     )
     @test all(
         r -> iszero(r["median_bytes"]),
-        filter(r -> r["variant"] == "UpdatableFactorizations", ROWS)
+        filter(r -> r["variant"] == "ModifiableFactorizations", ROWS)
     )
     empty!(ROWS)
 end
@@ -132,7 +132,7 @@ end
     src = read(joinpath(@__DIR__, "plot_results.jl"), String)
     # The script must not construct a factorization or call a benchmark macro: the published
     # numbers come from the recorded file, not from a fresh measurement.
-    for forbidden in ("@be", "@b ", "UpdatableCholesky(", "UpdatableLU(", "UpdatableQR(")
+    for forbidden in ("@be", "@b ", "ModifiableCholesky(", "ModifiableLU(", "ModifiableQR(")
         @test !occursin(forbidden, src)
     end
     @test occursin("JSON.parsefile", src)

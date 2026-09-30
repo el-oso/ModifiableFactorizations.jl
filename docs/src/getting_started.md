@@ -2,20 +2,20 @@
 
 ```julia
 using Pkg
-Pkg.add("UpdatableFactorizations")
+Pkg.add("ModifiableFactorizations")
 ```
 
 ## Cholesky
 
-`UpdatableCholesky` factors a Hermitian positive definite matrix. It can be built from a plain
+`ModifiableCholesky` factors a Hermitian positive definite matrix. It can be built from a plain
 matrix or from an existing `LinearAlgebra.Cholesky`; both input orientations, `uplo = :L` and
 `uplo = :U`, give identical results because the package always stores the lower factor.
 
 ```@example cholesky
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 A = [4.0 2.0; 2.0 3.0]
-F = UpdatableCholesky(A)
+F = ModifiableCholesky(A)
 F.L
 ```
 
@@ -38,15 +38,15 @@ F \ b
 
 ## LU
 
-`UpdatableLU` factors a general square matrix, with partial pivoting by default. It is stored as
+`ModifiableLU` factors a general square matrix, with partial pivoting by default. It is stored as
 `P*A = L*Diagonal(d)*U`, but `F.L` and `F.U` return the factors in the same form
 `LinearAlgebra.lu` gives them, so the two are interchangeable for reading off the factorization.
 
 ```@example lu
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 B = [4.0 3.0; 6.0 3.0]
-G = UpdatableLU(B)
+G = ModifiableLU(B)
 G.L
 ```
 
@@ -63,14 +63,14 @@ Matrix(G) ≈ B
 
 ## QR
 
-`UpdatableQR` factors an `m` by `n` matrix with `m >= n` as `Q*R`, holding the thin `Q` (`m` by
+`ModifiableQR` factors an `m` by `n` matrix with `m >= n` as `Q*R`, holding the thin `Q` (`m` by
 `n`, orthonormal columns) and the upper triangular `R`.
 
 ```@example qr
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 C = [1.0 1.0; 1.0 2.0; 1.0 3.0]
-H = UpdatableQR(C)
+H = ModifiableQR(C)
 H.R
 ```
 
@@ -96,21 +96,21 @@ H \ y
 `insert_row!` adds an observation and `insert_column!` adds a variable:
 
 ```@example qr
-H2 = UpdatableQR(C; capacity = (10, 4))
-UpdatableFactorizations.capacity(H2)
+H2 = ModifiableQR(C; capacity = (10, 4))
+ModifiableFactorizations.capacity(H2)
 ```
 
 `capacity` is public but not exported, so it is reached through the module name.
 
 ## Capacity
 
-`UpdatableCholesky` and `UpdatableQR` can grow: `insert_column!` extends the factored matrix by
+`ModifiableCholesky` and `ModifiableQR` can grow: `insert_column!` extends the factored matrix by
 one index. The `capacity` keyword sets how large the factorization can grow before its storage is
-reallocated — an integer for `UpdatableCholesky`, a `(rows, columns)` tuple for `UpdatableQR`:
+reallocated — an integer for `ModifiableCholesky`, a `(rows, columns)` tuple for `ModifiableQR`:
 
 ```@example cholesky
-F2 = UpdatableCholesky(A; capacity = 10)
+F2 = ModifiableCholesky(A; capacity = 10)
 size(F2)
 ```
 
-`UpdatableLU` has no resizing operation and so takes no `capacity` argument.
+`ModifiableLU` has no resizing operation and so takes no `capacity` argument.

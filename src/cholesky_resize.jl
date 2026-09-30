@@ -1,5 +1,5 @@
 """
-    delete_column!(F::UpdatableCholesky, j) -> F
+    delete_column!(F::ModifiableCholesky, j) -> F
 
 Remove index `j`, deleting both row `j` and column `j` of the factored matrix, in `O(n^2)`
 operations.
@@ -10,7 +10,7 @@ changes by a rank-1 update with the deleted column's tail.
 
 Golub and Van Loan, *Matrix Computations*, 4th edition, section 6.5.
 """
-function delete_column!(F::UpdatableCholesky, j::Integer)
+function delete_column!(F::ModifiableCholesky, j::Integer)
     n = F.n
     1 <= j <= n || throw(BoundsError(F, j))
     L = _lower(F)
@@ -32,7 +32,7 @@ function delete_column!(F::UpdatableCholesky, j::Integer)
     return F
 end
 
-function _grow!(F::UpdatableCholesky{T}, needed::Int) where {T}
+function _grow!(F::ModifiableCholesky{T}, needed::Int) where {T}
     needed <= capacity(F) && return F
     newcap = max(needed, 2 * capacity(F))
     f = zeros(T, newcap, newcap)
@@ -46,7 +46,7 @@ function _grow!(F::UpdatableCholesky{T}, needed::Int) where {T}
 end
 
 # Append a new last index. `x` has length n+1, with its last entry the new diagonal entry.
-function _append!(F::UpdatableCholesky{T}, x::AbstractVector) where {T}
+function _append!(F::ModifiableCholesky{T}, x::AbstractVector) where {T}
     n = F.n
     length(x) == n + 1 ||
         throw(DimensionMismatch("x has length $(length(x)), expected $(n + 1)"))
@@ -81,7 +81,7 @@ end
 # leaves L lower triangular again. Chaining this over the |i - j| steps between two indices
 # costs O(n) per step, hence O((|i - j| + 1) * n) overall, rather than a full
 # re-triangularization of the whole factor.
-function _adjacent_shift!(F::UpdatableCholesky, k::Int)
+function _adjacent_shift!(F::ModifiableCholesky, k::Int)
     n = F.n
     L = _lower(F)
     for c in 1:(k - 1)
@@ -145,7 +145,7 @@ function _cyclicperm!(p::AbstractVector{Int}, i::Int, j::Int)
 end
 
 """
-    shift_columns!(F::UpdatableCholesky, i, j) -> F
+    shift_columns!(F::ModifiableCholesky, i, j) -> F
 
 Move index `i` to position `j`, sliding the indices between them by one, and update the
 factorization to match, in `O((|i - j| + 1) * n)` operations. Both the row and the column
@@ -153,7 +153,7 @@ move, keeping the factored matrix symmetric.
 
 Golub and Van Loan, *Matrix Computations*, 4th edition, section 6.5.
 """
-function shift_columns!(F::UpdatableCholesky, i::Integer, j::Integer)
+function shift_columns!(F::ModifiableCholesky, i::Integer, j::Integer)
     1 <= i <= F.n || throw(BoundsError(F, i))
     1 <= j <= F.n || throw(BoundsError(F, j))
     ii, jj = Int(i), Int(j)
@@ -171,7 +171,7 @@ function shift_columns!(F::UpdatableCholesky, i::Integer, j::Integer)
 end
 
 """
-    insert_column!(F::UpdatableCholesky, j, x) -> F
+    insert_column!(F::ModifiableCholesky, j, x) -> F
 
 Insert a new index at position `j`, adding both a row and a column. `x` is the new row and
 column in the resulting indexing, so it has length `n+1` and `x[j]` is the new diagonal entry.
@@ -183,7 +183,7 @@ much as `shift_columns!(F, 1, n)`.
 Daniel, Gragg, Kaufman and Stewart, *Reorthogonalization and stable algorithms for updating the
 Gram-Schmidt QR factorization*, Mathematics of Computation 30 (1976), 772-795.
 """
-function insert_column!(F::UpdatableCholesky, j::Integer, x::AbstractVector)
+function insert_column!(F::ModifiableCholesky, j::Integer, x::AbstractVector)
     n = F.n
     length(x) == n + 1 ||
         throw(DimensionMismatch("x has length $(length(x)), expected $(n + 1)"))

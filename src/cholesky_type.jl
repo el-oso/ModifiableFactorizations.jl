@@ -1,8 +1,8 @@
-abstract type AbstractUpdatableCholesky{T} <: Factorization{T} end
+abstract type AbstractModifiableCholesky{T} <: Factorization{T} end
 
 """
-    UpdatableCholesky(C::Cholesky; capacity = 2size(C, 1) + 1)
-    UpdatableCholesky(A::AbstractMatrix; uplo = :L, capacity = 2size(A, 1) + 1)
+    ModifiableCholesky(C::Cholesky; capacity = 2size(C, 1) + 1)
+    ModifiableCholesky(A::AbstractMatrix; uplo = :L, capacity = 2size(A, 1) + 1)
 
 Cholesky factorization that supports rank-1 update and downdate and symmetric insertion,
 deletion and shifting of indices. `capacity` is the largest size the factorization can reach
@@ -14,7 +14,7 @@ storage cost.
 The lower factor `L` of `A = L*L'` is what is stored, whichever triangle the input holds.
 `F.L` is that factor, `F.U` its adjoint, and `Matrix(F)` the reconstructed `A`.
 """
-mutable struct UpdatableCholesky{T, R <: Real, S <: AbstractMatrix{T}} <: AbstractUpdatableCholesky{T}
+mutable struct ModifiableCholesky{T, R <: Real, S <: AbstractMatrix{T}} <: AbstractModifiableCholesky{T}
     factors::S
     n::Int
     work::Vector{T}      # scratch: the update vector, consumed in place
@@ -30,12 +30,12 @@ end
 function _wrap_cholesky(f::Matrix{T}, n::Int) where {T}
     R = real(T)
     cap = size(f, 1)
-    return UpdatableCholesky{T, R, Matrix{T}}(
+    return ModifiableCholesky{T, R, Matrix{T}}(
         f, n, zeros(T, cap), zeros(R, cap), zeros(T, cap), zeros(Int, cap)
     )
 end
 
-function UpdatableCholesky(C::Cholesky{T}; capacity::Int = 2size(C, 1) + 1) where {T}
+function ModifiableCholesky(C::Cholesky{T}; capacity::Int = 2size(C, 1) + 1) where {T}
     n = size(C, 1)
     capacity >= n || throw(ArgumentError("capacity $capacity is below the size $n"))
     f = zeros(T, capacity, capacity)
@@ -55,47 +55,47 @@ function UpdatableCholesky(C::Cholesky{T}; capacity::Int = 2size(C, 1) + 1) wher
     return _wrap_cholesky(f, n)
 end
 
-UpdatableCholesky(A::AbstractMatrix; uplo::Symbol = :L, capacity::Int = 2size(A, 1) + 1) =
-    UpdatableCholesky(cholesky(Hermitian(A, uplo)); capacity)
+ModifiableCholesky(A::AbstractMatrix; uplo::Symbol = :L, capacity::Int = 2size(A, 1) + 1) =
+    ModifiableCholesky(cholesky(Hermitian(A, uplo)); capacity)
 
 # The active block of the stored lower factor.
-_lower(F::UpdatableCholesky) = view(F.factors, 1:F.n, 1:F.n)
+_lower(F::ModifiableCholesky) = view(F.factors, 1:F.n, 1:F.n)
 
-Base.size(F::UpdatableCholesky) = (F.n, F.n)
-function Base.size(F::UpdatableCholesky, dim::Integer)
+Base.size(F::ModifiableCholesky) = (F.n, F.n)
+function Base.size(F::ModifiableCholesky, dim::Integer)
     dim < 1 && throw(ArgumentError("dimension must be positive, got $dim"))
     return dim <= 2 ? F.n : 1
 end
 
-function Base.getproperty(F::UpdatableCholesky, s::Symbol)
+function Base.getproperty(F::ModifiableCholesky, s::Symbol)
     s === :L && return LowerTriangular(_lower(F))
     s === :U && return UpperTriangular(adjoint(_lower(F)))
     return getfield(F, s)
 end
 
-Base.propertynames(::UpdatableCholesky, private::Bool = false) =
-    private ? (:L, :U, fieldnames(UpdatableCholesky)...) : (:L, :U)
+Base.propertynames(::ModifiableCholesky, private::Bool = false) =
+    private ? (:L, :U, fieldnames(ModifiableCholesky)...) : (:L, :U)
 
-Base.AbstractMatrix(F::UpdatableCholesky) = (L = F.L; L * L')
-Base.Matrix(F::UpdatableCholesky) = Matrix(AbstractMatrix(F))
+Base.AbstractMatrix(F::ModifiableCholesky) = (L = F.L; L * L')
+Base.Matrix(F::ModifiableCholesky) = Matrix(AbstractMatrix(F))
 
 """
-    capacity(F::UpdatableCholesky) -> Int
+    capacity(F::ModifiableCholesky) -> Int
 
 The largest size `F` can reach before its storage is reallocated.
 """
-capacity(F::UpdatableCholesky) = size(F.factors, 1)
+capacity(F::ModifiableCholesky) = size(F.factors, 1)
 
 # Every operation either completes or throws with the factorization left as it was.
-LinearAlgebra.issuccess(::UpdatableCholesky) = true
+LinearAlgebra.issuccess(::ModifiableCholesky) = true
 
-function LinearAlgebra.ldiv!(F::UpdatableCholesky, b::AbstractVecOrMat)
+function LinearAlgebra.ldiv!(F::ModifiableCholesky, b::AbstractVecOrMat)
     L = LowerTriangular(_lower(F))
     ldiv!(L, b)
     ldiv!(L', b)
     return b
 end
 
-LinearAlgebra.logdet(F::UpdatableCholesky) =
+LinearAlgebra.logdet(F::ModifiableCholesky) =
     2 * sum(i -> log(real(F.factors[i, i])), 1:F.n; init = zero(real(eltype(F.factors))))
-LinearAlgebra.det(F::UpdatableCholesky) = exp(logdet(F))
+LinearAlgebra.det(F::ModifiableCholesky) = exp(logdet(F))

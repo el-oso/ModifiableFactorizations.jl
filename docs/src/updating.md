@@ -7,10 +7,10 @@
 scope.
 
 ```@example update
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 A = [4.0 2.0; 2.0 3.0]
-F = UpdatableCholesky(A)
+F = ModifiableCholesky(A)
 v = [1.0, 0.5]
 lowrankupdate!(F, v)
 Matrix(F) ≈ A + v * v'
@@ -23,10 +23,10 @@ Matrix(F) ≈ A + v * v'
 factorization of a matrix that is not what was asked for:
 
 ```@example downdate
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 A = [4.0 2.0; 2.0 3.0]
-F = UpdatableCholesky(A)
+F = ModifiableCholesky(A)
 try
     lowrankdowndate!(F, [10.0, 10.0])
 catch e
@@ -41,10 +41,10 @@ column. `x` is the new row and column in the resulting `n+1` indexing, so `x[j]`
 diagonal entry:
 
 ```@example insert
-using UpdatableFactorizations
+using ModifiableFactorizations
 
 A = [4.0 2.0; 2.0 3.0]
-F = UpdatableCholesky(A)
+F = ModifiableCholesky(A)
 insert_column!(F, 1, [10.0, 1.0, 2.0])
 Matrix(F)
 ```
@@ -97,10 +97,10 @@ the move requires.
 Dispatch on `F`'s pivoting picks the unpivoted or pivoted update automatically:
 
 ```@example lu1up
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 B = [4.0 3.0; 6.0 3.0]
-G = UpdatableLU(B)
+G = ModifiableLU(B)
 u = [1.0, 0.0]
 v = [0.0, 1.0]
 lowrankupdate!(G, u, v)
@@ -115,9 +115,9 @@ and after the update. `rtol` widens the exact-zero test to a relative threshold,
 knob to use in a loop of updates rather than relying on the exact test alone:
 
 ```@example lu1upfail
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
-G = UpdatableLU([1.0 0.0; 0.0 1.0]; pivot = NoPivot())
+G = ModifiableLU([1.0 0.0; 0.0 1.0]; pivot = NoPivot())
 try
     lowrankupdate!(G, [-1.0, 0.0], [1.0, 0.0])
 catch e
@@ -135,13 +135,13 @@ factorization can only be rebuilt, not repaired.
 
 ## QR construction
 
-`UpdatableQR` factors a thin, `m >= n` matrix, and supports rank-1 update and insertion,
+`ModifiableQR` factors a thin, `m >= n` matrix, and supports rank-1 update and insertion,
 deletion and shifting of columns and rows. `qr_householder(A)` is the recommended way to build
 one: it factors through `LinearAlgebra.qr`, so orthogonality of `Q` is at machine precision
 whatever the condition number of `A`, which no Gram-Schmidt variant gives.
 
 ```@example qrconstruct
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 A = [4.0 2.0; 2.0 3.0; 1.0 1.0; 0.0 2.0]
 F = qr_householder(A)
@@ -152,7 +152,7 @@ Matrix(F) ≈ A
 norm(F.Q'F.Q - I) < 1.0e-14
 ```
 
-Unlike `UpdatableLU`'s `F.L` and `F.U`, which are reassembled on access, `F.Q` and `F.R` are
+Unlike `ModifiableLU`'s `F.L` and `F.U`, which are reassembled on access, `F.Q` and `F.R` are
 views of live storage: a later verb changes what an earlier one returned, and writing through
 them changes the factorization.
 
@@ -160,7 +160,7 @@ them changes the factorization.
 storage is reallocated:
 
 ```@example qrconstruct
-UpdatableFactorizations.capacity(F)
+ModifiableFactorizations.capacity(F)
 ```
 
 Growing `ncap` appends columns to a column-major buffer; growing `mcap` re-strides every
@@ -169,8 +169,8 @@ grows it, so a caller inserting rows in a loop should pre-size `capacity` rather
 double repeatedly.
 
 Every verb either completes or throws with the factorization left exactly as it was, so
-`issuccess(F)` is always `true` for an `UpdatableQR` — there is no invalid state to recover
-from, unlike `UpdatableLU`. Three of the six verbs reorthogonalize with an unconditional second
+`issuccess(F)` is always `true` for an `ModifiableQR` — there is no invalid state to recover
+from, unlike `ModifiableLU`. Three of the six verbs reorthogonalize with an unconditional second
 pass against `Q`: this costs a second `O(mn)` pair of matrix-vector products in
 `lowrankupdate!`, `insert_column!` and `delete_row!`, and it is what keeps `norm(F.Q'F.Q - I)`
 at the level of rounding across the whole range from a well-conditioned update to one at the
@@ -183,7 +183,7 @@ edge of the verb's own refusal. The package does not build a factorization faste
 Neither `u` nor `v` is modified:
 
 ```@example qrupdate
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 A = [4.0 2.0; 2.0 3.0; 1.0 1.0; 0.0 2.0]
 F = qr_householder(A)
@@ -208,11 +208,11 @@ column `j` at which it collapses — `1` when column `j` carries no contribution
 before it, falling toward `0` as `u*v'` drives it into their span:
 
 ```@example qrupdate2
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 Q = [1.0 0.0; 0.0 1.0; 0.0 0.0]
 R = [3.0 1.0; 0.0 5.0]
-F = UpdatableQR(Q, R)
+F = ModifiableQR(Q, R)
 u = [0.0, -5.0 * (1 - 1.0e-10), 0.0]
 v = [0.0, 1.0]
 try
@@ -232,7 +232,7 @@ issuccess(F) && Matrix(F) ≈ Q * R
 refuses:
 
 ```@example qrupdate2
-G = UpdatableQR(Q, R)
+G = ModifiableQR(Q, R)
 lowrankupdate!(G, u, v; rtol = 0.0)
 Matrix(G) ≈ [3.0 1.0; 0.0 5.0e-10; 0.0 0.0]
 ```
@@ -252,7 +252,7 @@ bare call.
 past `j` one place to the right. `x` is not modified:
 
 ```@example qrcol
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 A = [4.0 2.0; 2.0 3.0; 1.0 1.0; 0.0 2.0]
 F = qr_householder(A)
@@ -264,7 +264,7 @@ Matrix(F) ≈ [10.0 4.0 2.0; 1.0 2.0 3.0; 2.0 1.0 1.0; 3.0 0.0 2.0]
 leave `m < n + 1`, and the type requires `m >= n`:
 
 ```@example qrcolsquare
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 G = qr_householder([1.0 2.0; 3.0 4.0])
 try
@@ -284,7 +284,7 @@ existing ones — an exact linear combination of them — leaves `rho` at the le
 rather than at zero, so the default `rtol` refuses it:
 
 ```@example qrcol2
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 A = [4.0 2.0; 2.0 3.0; 1.0 1.0; 0.0 2.0]
 F = qr_householder(A)
@@ -327,7 +327,7 @@ capacity, which re-strides every column of the stored factor, so a caller insert
 loop should pre-size `capacity`:
 
 ```@example qrrow
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 A = [4.0 2.0; 2.0 3.0; 1.0 1.0; 0.0 2.0]
 F = qr_householder(A)
@@ -348,7 +348,7 @@ Matrix(F) ≈ A
 leave `m - 1 < n`:
 
 ```@example qrrowsquare
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 H = qr_householder([1.0 2.0; 3.0 4.0])
 try
@@ -367,12 +367,12 @@ unreachable for exactly this case, unlike `lowrankupdate!` and `insert_column!` 
 reliably disables the check:
 
 ```@example qrrowlev
-using LinearAlgebra, UpdatableFactorizations
+using LinearAlgebra, ModifiableFactorizations
 
 # Row 3 is twice row 2, so rows 2 and 3 together have rank 1: row 1 alone carries the
 # factorization's second dimension, and removing it drops the numerical rank.
 A = [1.0 0.0; 1.0 1.0; 2.0 2.0]
-G = UpdatableQR(A)
+G = ModifiableQR(A)
 try
     delete_row!(G, 1)
 catch e

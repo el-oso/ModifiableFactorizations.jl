@@ -5,7 +5,7 @@
 # pause) for both sides, since the two answer different questions — see `paired` and `record`.
 # Every round is written out, not just the median, so tables and plots are regenerated from the
 # saved JSON rather than by re-running.
-using UpdatableFactorizations
+using ModifiableFactorizations
 using LinearAlgebra, ForwardDiff, JSON, Random, Printf, Dates
 
 BLAS.set_num_threads(1)
@@ -94,7 +94,7 @@ function cholesky_cells(ns, ss)
         base = () -> cholesky!(Symmetric(copy(A), :L))
         for s in ss,
                 (name, f) in (
-                    ("rankk", UpdatableFactorizations.default_rankk!), ("gemm", gemm_rankk!),
+                    ("rankk", ModifiableFactorizations.default_rankk!), ("gemm", gemm_rankk!),
                 )
             s < n || continue
             cand = () -> cholesky_crout(A; s, rankk! = f)

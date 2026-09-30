@@ -7,7 +7,7 @@
         # The fixture must not already be near-orthogonal, or a broken rotation sweep passes.
         @test norm(A' * A - I) > 1
         for j in 1:n
-            F = UpdatableQR(A)
+            F = ModifiableQR(A)
             # Poison Q's augmentation column before deleting: other verbs leave their working
             # there, and `delete_column!` must clear it itself. The columns past it are zero by
             # the invariant, which no verb breaks, so they are not poisoned. R's spare storage is
@@ -38,14 +38,14 @@ end
     using LinearAlgebra, Random
 
     Random.seed!(20260908)
-    F = UpdatableQR(randn(8, 4))
+    F = ModifiableQR(randn(8, 4))
     @test_throws BoundsError delete_column!(F, 5)
     @test_throws BoundsError delete_column!(F, 0)
 end
 
 @testitem "_retriangularize! zeros an injected subdiagonal spike and preserves Q*R" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: _retriangularize!, DenseQ
+    using ModifiableFactorizations: _retriangularize!, DenseQ
 
     Random.seed!(20260908)
     for T in (Float64, ComplexF64)
@@ -73,7 +73,7 @@ end
 
 @testitem "_retriangularize! only reads and rotates within the given column range" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: _retriangularize!, DenseQ
+    using ModifiableFactorizations: _retriangularize!, DenseQ
 
     Random.seed!(20260908)
     T = Float64
@@ -96,7 +96,7 @@ end
 
 @testitem "_retriangularize_hessenberg! zeros a single subdiagonal entry per column and preserves Q*R" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: _retriangularize_hessenberg!, DenseQ
+    using ModifiableFactorizations: _retriangularize_hessenberg!, DenseQ
 
     Random.seed!(20260908)
     for T in (Float64, ComplexF64)
@@ -128,7 +128,7 @@ end
         A = randn(T, m, n)
         @test norm(A' * A - I) > 1
         for i in 1:n, j in 1:n
-            F = UpdatableQR(A)
+            F = ModifiableQR(A)
             shift_columns!(F, i, j)
             p = collect(1:n)
             deleteat!(p, i)
@@ -149,7 +149,7 @@ end
     for T in (Float64, ComplexF64), (m, n) in ((10, 5), (7, 7))
         A = randn(T, m, n)
         for i in 1:n, j in 1:n
-            F = UpdatableQR(A)
+            F = ModifiableQR(A)
             # `n` never changes, `_retriangularize!` rotates only within R's active n x n block
             # and, through `rmul!`, only Q's active columns, and nothing here ever reaches
             # Q's spare storage or R's storage deeper than its spare column: poison it and
@@ -187,7 +187,7 @@ end
     using LinearAlgebra, Random
 
     Random.seed!(20260908)
-    F = UpdatableQR(randn(8, 4))
+    F = ModifiableQR(randn(8, 4))
     @test_throws BoundsError shift_columns!(F, 5, 1)
     # `err.a === F` pins the exception to the explicit bounds check rather than an incidental
     # `BoundsError` from indexing into internal storage with the unvalidated argument.
@@ -210,7 +210,7 @@ end
         A = randn(T, m, n)
         u = randn(T, m)
         v = randn(T, n)
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         Qb = copy(F.Q)
         lowrankupdate!(F, u, v)
         @test norm(F.Q * F.R - (A + u * v')) / norm(A) < 1.0e-12
@@ -232,7 +232,7 @@ end
     Random.seed!(20260908)
     for T in (Float64, ComplexF64), (m, n) in ((10, 5), (6, 6))
         A = randn(T, m, n)
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         y = randn(T, n)
         u = F.Q * y
         v = randn(T, n)
@@ -254,7 +254,7 @@ end
 
     Random.seed!(20260908)
     m, n = 9, 5
-    F = UpdatableQR(randn(m, n))
+    F = ModifiableQR(randn(m, n))
     u = randn(m)
     v = randn(n)
     uc = copy(u)
@@ -268,7 +268,7 @@ end
     using LinearAlgebra, Random
 
     Random.seed!(20260908)
-    F = UpdatableQR(randn(9, 5))
+    F = ModifiableQR(randn(9, 5))
     @test_throws "u has length 8, factorization is 9x5" lowrankupdate!(F, zeros(8), zeros(5))
     @test_throws "v has length 4, factorization is 9x5" lowrankupdate!(F, zeros(9), zeros(4))
 end
@@ -281,7 +281,7 @@ end
     for T in (Float64, ComplexF64)
         A = randn(T, 10, 5)
         push!(cases, (T, A, randn(T, 10), randn(T, 5)))                 # out-of-range branch
-        F0 = UpdatableQR(A)
+        F0 = ModifiableQR(A)
         push!(cases, (T, A, F0.Q * randn(T, 5), randn(T, 5)))           # in-range branch
         Asq = randn(T, 6, 6)
         push!(cases, (T, Asq, randn(T, 6), randn(T, 6)))                # square: no room to grow
@@ -289,7 +289,7 @@ end
         push!(cases, (T, A, randn(T, 10), zeros(T, 5)))                 # zero v
     end
     for (T, A, u, v) in cases
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         # Poison Q's augmentation column, over its active rows, before updating: `lowrankupdate!`
         # must re-establish the zero invariant there itself, not rely on it already holding.
         # Rows beyond F.m are left alone: `m` never changes here, so that range is never read or
@@ -310,7 +310,7 @@ end
 
 @testitem "_project! computes the two-pass Gram-Schmidt coefficients and residual" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: _project!
+    using ModifiableFactorizations: _project!
 
     Random.seed!(20260908)
     for T in (Float64, ComplexF64)
@@ -334,7 +334,7 @@ end
 
 @testitem "_project_residual! removes leakage left by a first pass and accumulates it into w" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: _project_residual!
+    using ModifiableFactorizations: _project_residual!
 
     Random.seed!(20260908)
     for T in (Float64, ComplexF64)
@@ -361,7 +361,7 @@ end
     for T in (Float64, ComplexF64)
         m, n = 10, 5
         A = randn(T, m, n)
-        F0 = UpdatableQR(A)
+        F0 = ModifiableQR(A)
         j = 3
         Rjj = F0.R[j, j]
         delta = 1.0e-10
@@ -372,7 +372,7 @@ end
         v = zeros(T, n)
         v[j] = one(T)
 
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         qbufbefore = copy(getfield(F, :qrep).buf)
         rbufbefore = copy(getfield(F, :factors))
         err = try
@@ -397,7 +397,7 @@ end
         @test all(iszero, view(R, (F.n + 1):size(R, 1), :))
         @test all(iszero, view(R, :, (F.n + 1):size(R, 2)))
 
-        G = UpdatableQR(A)
+        G = ModifiableQR(A)
         lowrankupdate!(G, u, v; rtol = 0.0)
         @test norm(G.Q * G.R - (A + u * v')) / norm(A) < 1.0e-8
         @test norm(G.Q' * G.Q - I) < 1.0e-12
@@ -413,7 +413,7 @@ end
     for T in (Float64, ComplexF64)
         m, n = 10, 5
         A = randn(T, m, n)
-        F0 = UpdatableQR(A)
+        F0 = ModifiableQR(A)
         j = 3
         Rjj = F0.R[j, j]
         delta = 1.0e-10
@@ -428,7 +428,7 @@ end
         v = zeros(T, n)
         v[j] = one(T)
 
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         qbufbefore = copy(getfield(F, :qrep).buf)
         rbufbefore = copy(getfield(F, :factors))
         err = try
@@ -458,7 +458,7 @@ end
         A = randn(T, m, n)
         u = randn(T, m)
         v = randn(T, n)
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         lowrankupdate!(F, u, v)   # default rtol; must not throw
         @test norm(F.Q * F.R - (A + u * v')) / norm(A) < 1.0e-12
         @test norm(F.Q' * F.Q - I) < 1.0e-12
@@ -475,15 +475,15 @@ end
         u = randn(m)
         v = randn(n)
 
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         lowrankupdate!(F, u, v; rtol = 0.0)   # warm: compile before measuring
-        G = UpdatableQR(A)
+        G = ModifiableQR(A)
         bytes0 = @allocated lowrankupdate!(G, u, v; rtol = 0.0)
         @test iszero(bytes0)
 
-        H = UpdatableQR(A)
+        H = ModifiableQR(A)
         lowrankupdate!(H, u, v)               # warm the default-rtol path separately
-        K = UpdatableQR(A)
+        K = ModifiableQR(A)
         bytesdefault = @allocated lowrankupdate!(K, u, v)
         @test iszero(bytesdefault)
     end
@@ -499,7 +499,7 @@ end
             keep = setdiff(1:(n + 1), j)
             A = Afull[:, keep]
             x = Afull[:, j]
-            F = UpdatableQR(A)
+            F = ModifiableQR(A)
             insert_column!(F, j, x)
             @test size(F) == (m, n + 1)
             @test norm(F.Q * F.R - Afull) / norm(Afull) < 1.0e-12
@@ -513,13 +513,13 @@ end
 
 @testitem "QR column insertion grows past its capacity" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: capacity
+    using ModifiableFactorizations: capacity
 
     Random.seed!(20260908)
     m, n = 10, 4
     Afull = randn(m, n + 1)
     A = Afull[:, 1:n]
-    F = UpdatableQR(A; capacity = (m, n))
+    F = ModifiableQR(A; capacity = (m, n))
     @test capacity(F) == (m, n)
     insert_column!(F, n + 1, Afull[:, n + 1])
     @test capacity(F) == (m, 2n)
@@ -529,14 +529,14 @@ end
 
 @testitem "QR column insertion rejects a dependent column" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: capacity
+    using ModifiableFactorizations: capacity
 
     Random.seed!(20260908)
     m, n = 9, 4
     A = randn(m, n)
     # A tight capacity puts the growth this verb would perform under the same assertion as the
     # rest of its state: a rejected insertion leaves the capacity where it was.
-    F = UpdatableQR(A; capacity = (m, n))
+    F = ModifiableQR(A; capacity = (m, n))
     # An exact copy of an existing column leaves a residual of 1.95e-16, which is strictly
     # positive: it is the relative test against `norm(x)` that rejects it, not `rho > 0`.
     @test_throws "lies in the range of the existing columns" insert_column!(F, 2, A[:, 1])
@@ -565,14 +565,14 @@ end
     m, n = 9, 4
     A = randn(m, n)
     x = A[:, 1] + 1.0e-6 .* randn(m)
-    F = UpdatableQR(A)
+    F = ModifiableQR(A)
     insert_column!(F, n + 1, x)
     @test size(F) == (m, n + 1)
     # The default admits the column, whose residual ratio is 5.9e-7, and leaves a measurably
     # collapsed diagonal entry.
     @test abs(F.R[n + 1, n + 1]) < 1.0e-4
 
-    G = UpdatableQR(A)
+    G = ModifiableQR(A)
     @test_throws "lies in the range of the existing columns" insert_column!(
         G, n + 1, x; rtol = 1.0e-4
     )
@@ -582,11 +582,11 @@ end
     using LinearAlgebra, Random
 
     Random.seed!(20260908)
-    F = UpdatableQR(randn(9, 4))
+    F = ModifiableQR(randn(9, 4))
     @test_throws BoundsError insert_column!(F, 6, zeros(9))
     @test_throws BoundsError insert_column!(F, 0, zeros(9))
     @test_throws "x has length 8, factorization is 9x4" insert_column!(F, 1, zeros(8))
-    G = UpdatableQR(randn(4, 4))
+    G = ModifiableQR(randn(4, 4))
     @test_throws "the factorization requires m >= n" insert_column!(G, 1, zeros(4))
 end
 
@@ -599,7 +599,7 @@ end
         A = randn(m, n)
         x = randn(m)
         Afull = j == n + 1 ? hcat(A, x) : hcat(A[:, 1:1], x, A[:, 2:n])
-        F = UpdatableQR(A; capacity = (m, 2n))
+        F = ModifiableQR(A; capacity = (m, 2n))
         # Column/row F.n + 2 is deeper than the augmentation slot this call writes into, which
         # becomes active column F.n + 1 once the insertion completes: poison it and confirm the
         # call never reaches that far, since growing into the new column and row moves only into
@@ -644,15 +644,15 @@ end
         A = randn(m, n)
         x = randn(m)
 
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         insert_column!(F, n + 1, x; rtol = 0.0)   # warm: compile before measuring
-        G = UpdatableQR(A)
+        G = ModifiableQR(A)
         bytes0 = @allocated insert_column!(G, n + 1, x; rtol = 0.0)
         @test iszero(bytes0)
 
-        H = UpdatableQR(A)
+        H = ModifiableQR(A)
         insert_column!(H, n + 1, x)               # warm the default-rtol path separately
-        K = UpdatableQR(A)
+        K = ModifiableQR(A)
         bytesdefault = @allocated insert_column!(K, n + 1, x)
         @test iszero(bytesdefault)
     end
@@ -668,7 +668,7 @@ end
             keep = setdiff(1:(m + 1), i)
             A = Afull[keep, :]
             x = Afull[i, :]
-            F = UpdatableQR(A)
+            F = ModifiableQR(A)
             insert_row!(F, i, x)
             @test size(F) == (m + 1, n)
             @test norm(F.Q * F.R - Afull) / norm(Afull) < 1.0e-12
@@ -684,13 +684,13 @@ end
 
 @testitem "QR row insertion grows the row capacity" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: capacity
+    using ModifiableFactorizations: capacity
 
     Random.seed!(20260908)
     m, n = 8, 4
     Afull = randn(m + 1, n)
     A = Afull[1:m, :]
-    F = UpdatableQR(A; capacity = (m, n))
+    F = ModifiableQR(A; capacity = (m, n))
     insert_row!(F, m + 1, Afull[m + 1, :])
     @test capacity(F) == (2m, n)
     @test norm(F.Q * F.R - Afull) / norm(Afull) < 1.0e-12
@@ -701,7 +701,7 @@ end
     using LinearAlgebra, Random
 
     Random.seed!(20260908)
-    F = UpdatableQR(randn(9, 4))
+    F = ModifiableQR(randn(9, 4))
     @test_throws BoundsError insert_row!(F, 11, zeros(4))
     @test_throws BoundsError insert_row!(F, 0, zeros(4))
     @test_throws "x has length 3, factorization is 9x4" insert_row!(F, 1, zeros(3))
@@ -709,7 +709,7 @@ end
 
 @testitem "QR row insertion is unaffected by residue in the shared augmentation column" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: _spare
+    using ModifiableFactorizations: _spare
 
     Random.seed!(20260908)
     m, n = 8, 4
@@ -717,7 +717,7 @@ end
     Afull = randn(m + 1, n)
     A = Afull[setdiff(1:(m + 1), i), :]
     x = Afull[i, :]
-    F = UpdatableQR(A)
+    F = ModifiableQR(A)
     q = getfield(F, :qrep)
     # Poison the column this call builds its unit vector in, with a value distinctive enough
     # that leftover contamination rather than a coincidental zero would show up in the result.
@@ -738,7 +738,7 @@ end
         A = randn(T, m, n)
         @test norm(A' * A - I) > 1
         for i in 1:m
-            F = UpdatableQR(A)
+            F = ModifiableQR(A)
             delete_row!(F, i)
             keep = setdiff(1:m, i)
             @test size(F) == (m - 1, n)
@@ -764,7 +764,7 @@ end
     thrown = 0
     for delta in (1.0e-1, 1.0e-3, 1.0e-5, 1.0e-7, 1.0e-9, 1.0e-12, 1.0e-15, 0.0)
         A = vcat(hcat(randn(m - 1, n - 1), delta .* randn(m - 1)), hcat(randn(1, n - 1), 1.0))
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         try
             delete_row!(F, m)
         catch err
@@ -784,7 +784,7 @@ end
     using LinearAlgebra
 
     A = [1.0 0.0; 0.0 1.0; 0.0 0.0]
-    F = UpdatableQR(A)
+    F = ModifiableQR(A)
     @test_throws "row 1 has leverage one" delete_row!(F, 1)
     @test size(F) == (3, 2)               # the throw left the factorization as it was
     @test norm(F.Q * F.R - A) / norm(A) < 1.0e-13
@@ -802,13 +802,13 @@ end
     Random.seed!(20260908)
     m, n = 10, 4
     A = vcat(hcat(randn(m - 1, n - 1), 1.0e-6 .* randn(m - 1)), hcat(randn(1, n - 1), 1.0))
-    F = UpdatableQR(A)
+    F = ModifiableQR(A)
     delete_row!(F, m)
     @test size(F) == (m - 1, n)
     # The default admits the deletion and leaves a measurably collapsed diagonal entry.
     @test minimum(abs, diag(F.R)) < 1.0e-4
 
-    G = UpdatableQR(A)
+    G = ModifiableQR(A)
     @test_throws "has leverage one" delete_row!(G, m; rtol = 1.0e-4)
 end
 
@@ -816,7 +816,7 @@ end
     using LinearAlgebra, Random
 
     Random.seed!(20260908)
-    F = UpdatableQR(randn(9, 4))
+    F = ModifiableQR(randn(9, 4))
     # `err.a === F` and `err.i` pin the exception to the explicit bounds check: indexing into
     # internal storage with the unvalidated argument would raise an incidental `BoundsError`
     # too, on both of these indices, which a bare `@test_throws BoundsError` cannot tell apart.
@@ -838,7 +838,7 @@ end
     @test err0 isa BoundsError
     @test err0.a === F
     @test iszero(err0.i)
-    G = UpdatableQR(randn(4, 4))
+    G = ModifiableQR(randn(4, 4))
     @test_throws "deleting row 2 would leave a 3x4 factorization" delete_row!(G, 2)
 end
 
@@ -849,7 +849,7 @@ end
     m, n = 9, 4
     i = 3
     A = randn(m, n)
-    F = UpdatableQR(A)
+    F = ModifiableQR(A)
     # Poison Q's augmentation column, over the rows active before the call: `delete_row!` builds
     # the deleted row's orthogonal complement there and must re-establish the zero invariant
     # afterward, not rely on it already holding. Rows beyond `m` are left alone: this verb never
@@ -881,7 +881,7 @@ end
     Random.seed!(20260908)
     m, n = 10, 4
     A = vcat(hcat(randn(m - 1, n - 1), zeros(m - 1)), hcat(randn(1, n - 1), 1.0))
-    F = UpdatableQR(A)
+    F = ModifiableQR(A)
     qbufbefore = copy(getfield(F, :qrep).buf)
     rbufbefore = copy(getfield(F, :factors))
     err = try
@@ -905,9 +905,9 @@ end
     for m in (20, 500)
         A = randn(m, n)
 
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         delete_row!(F, 3)   # warm: compile before measuring
-        G = UpdatableQR(A)
+        G = ModifiableQR(A)
         bytes = @allocated delete_row!(G, 3)
         @test iszero(bytes)
     end
@@ -923,7 +923,7 @@ end
         Afull = randn(m + 1, n)
         A = Afull[setdiff(1:(m + 1), i), :]
         x = Afull[i, :]
-        F = UpdatableQR(A; capacity = cap)
+        F = ModifiableQR(A; capacity = cap)
         # No poisoning is needed to exercise the clearing: `_insertrow!` re-zeroes Q's
         # augmentation column unconditionally on entry regardless of what it held, and the
         # rotation sweep that follows fills it with genuine nonzero rotation mass for a generic
@@ -946,14 +946,14 @@ end
     Random.seed!(20260930)
     m, n = 9, 5
     A = randn(m, n)
-    F = UpdatableQR(A; capacity = (m, n))
+    F = ModifiableQR(A; capacity = (m, n))
 
     # The column an active-set method is entitled to try and be told no: an exact copy of one
     # already factored. `insert_column!` throws on it; this reports it, and leaves behind the
     # same factorization the throwing verb does.
     @test try_insert_column!(F, 2, A[:, 1]) == false
     @test size(F) == (m, n)
-    @test UpdatableFactorizations.capacity(F) == (m, n)
+    @test ModifiableFactorizations.capacity(F) == (m, n)
     @test norm(F.Q * F.R - A) / norm(A) < 1.0e-12
     qb = getfield(F, :qrep).buf
     @test all(iszero, view(qb, :, (F.n + 1):size(qb, 2)))
@@ -961,22 +961,22 @@ end
     # A column that is independent goes in, and the factorization is the one the throwing verb
     # would have produced.
     x = randn(m)
-    G = UpdatableQR(A; capacity = (m, n + 1))
+    G = ModifiableQR(A; capacity = (m, n + 1))
     @test try_insert_column!(G, n + 1, x) == true
     @test size(G) == (m, n + 1)
     @test norm(G.Q * G.R - hcat(A, x)) / norm(hcat(A, x)) < 1.0e-12
 
-    H = UpdatableQR(A; capacity = (m, n + 1))
+    H = ModifiableQR(A; capacity = (m, n + 1))
     insert_column!(H, n + 1, x)
     @test norm(G.Q * G.R - H.Q * H.R) / norm(H.Q * H.R) < 1.0e-12
 
     # Inserting anywhere but the end, which shifts the columns after it.
-    K = UpdatableQR(A; capacity = (m, n + 1))
+    K = ModifiableQR(A; capacity = (m, n + 1))
     @test try_insert_column!(K, 2, x) == true
     @test norm(K.Q * K.R - hcat(A[:, 1], x, A[:, 2:end])) / norm(A) < 1.0e-12
 
     # `rtol` is the caller's: a looser one refuses a column it would otherwise take.
-    L = UpdatableQR(A; capacity = (m, n + 1))
+    L = ModifiableQR(A; capacity = (m, n + 1))
     @test try_insert_column!(L, n + 1, x; rtol = 1.0) == false
     @test size(L) == (m, n)
 
@@ -995,12 +995,12 @@ end
 
     # Both outcomes measured on a warm call: this is the verb an allocation-free solve loop
     # calls, and the branch it takes depends on the data rather than on the caller.
-    refused = UpdatableQR(A; capacity = (m, n))
+    refused = ModifiableQR(A; capacity = (m, n))
     dup = A[:, 1]
     try_insert_column!(refused, 2, dup)
     @test iszero(@allocated try_insert_column!(refused, 2, dup))
 
-    taken = UpdatableQR(A; capacity = (m, n + 1))
+    taken = ModifiableQR(A; capacity = (m, n + 1))
     try_insert_column!(taken, n + 1, x)
     delete_column!(taken, n + 1)
     @test iszero(@allocated try_insert_column!(taken, n + 1, x))
@@ -1015,7 +1015,7 @@ end
         # column, leaves a residual of exactly zero rather than rounding noise.
         E = Matrix{T}(I, m, n)
         for x in (E[:, 2], zeros(T, m))
-            F = UpdatableQR(E; capacity = (m, n + 1))
+            F = ModifiableQR(E; capacity = (m, n + 1))
             @test try_insert_column!(F, n + 1, x; rtol = 0) == true
             @test size(F) == (m, n + 1)
             @test iszero(F.R[n + 1, n + 1])
@@ -1025,18 +1025,18 @@ end
         end
         # Inserting before the column it duplicates shifts the dependency later, where the
         # rotations that restore triangularity carry it.
-        K = UpdatableQR(E; capacity = (m, n + 1))
+        K = ModifiableQR(E; capacity = (m, n + 1))
         @test try_insert_column!(K, 2, E[:, 2]; rtol = 0) == true
         @test norm(K.Q' * K.Q - I) < 1.0e-14
         @test norm(K.Q * K.R - hcat(E[:, 1], E[:, 2], E[:, 2:n])) < 1.0e-14
 
         # Any positive `rtol` still refuses the same column.
-        G = UpdatableQR(E; capacity = (m, n + 1))
+        G = ModifiableQR(E; capacity = (m, n + 1))
         @test try_insert_column!(G, 2, E[:, 2]) == false
         @test_throws "lies in the range of the existing columns" insert_column!(G, 2, E[:, 2])
 
         # A non-finite column is refused at every `rtol`, and the factorization is unchanged.
-        H = UpdatableQR(E; capacity = (m, n + 1))
+        H = ModifiableQR(E; capacity = (m, n + 1))
         bad = fill(T(NaN), m)
         @test try_insert_column!(H, 2, bad; rtol = 0) == false
         @test size(H) == (m, n)
@@ -1051,7 +1051,7 @@ end
     m, n = 7, 3
     E = Matrix{Float64}(I, m, n)
     x = E[:, 2]
-    F = UpdatableQR(E; capacity = (m, n + 1))
+    F = ModifiableQR(E; capacity = (m, n + 1))
     try_insert_column!(F, 2, x; rtol = 0)           # warm
     delete_column!(F, 2)
     @test iszero(@allocated try_insert_column!(F, 2, x; rtol = 0))

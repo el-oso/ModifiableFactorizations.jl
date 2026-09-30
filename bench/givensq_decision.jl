@@ -7,7 +7,7 @@
 # the opposite convention from `construct_sweep.jl`, whose ratio is candidate over baseline with
 # the candidate in the numerator; every number printed or written below states its direction.
 using LinearAlgebra, Random, JSON, Printf, Dates
-using UpdatableFactorizations
+using ModifiableFactorizations
 
 include(joinpath(@__DIR__, "..", "docs", "superpowers", "specs", "proto_givensq.jl"))
 
@@ -15,7 +15,7 @@ BLAS.set_num_threads(1)
 
 function dense_loop(A, xs, bs)
     m, n = size(A)
-    F = UpdatableQR(A; capacity = (m, n + length(xs)))
+    F = ModifiableQR(A; capacity = (m, n + length(xs)))
     s = 0.0
     for k in eachindex(xs)
         insert_column!(F, size(F, 2) + 1, xs[k])

@@ -1,4 +1,4 @@
-module UpdatableFactorizations
+module ModifiableFactorizations
 
 using LinearAlgebra
 using LinearAlgebra: givensAlgorithm, Givens, PosDefException, ZeroPivotException, QRCompactWY
@@ -9,13 +9,13 @@ using TypeContracts
 # allocation-free, so the verbs that host one keep both guarantees with checks enabled.
 using StrictMode
 
-export UpdatableCholesky, UpdatableLU, UpdatableQR
+export ModifiableCholesky, ModifiableLU, ModifiableQR
 export insert_column!, try_insert_column!, delete_column!, shift_columns!, insert_row!, delete_row!
 export qr_householder
 export cholesky_crout, lu_crout, qr_bcgs
 export cholesky_crout!, lu_crout!, qr_bcgs!
 public AbstractQRep, DenseQ, materialize, capacity
-public AbstractUpdatableCholesky, AbstractUpdatableLU, AbstractUpdatableQR
+public AbstractModifiableCholesky, AbstractModifiableLU, AbstractModifiableQR
 public default_rankk!
 
 include("cholesky_type.jl")

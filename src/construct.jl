@@ -68,7 +68,7 @@ end
 """
     cholesky_crout(A; s = 64, uplo = :L, capacity = 2size(A, 1), rankk! = default_rankk!)
 
-Factor the Hermitian positive definite matrix `A` as `L*L'` and return an `UpdatableCholesky`.
+Factor the Hermitian positive definite matrix `A` as `L*L'` and return an `ModifiableCholesky`.
 Only the triangle named by `uplo` is read; a `Symmetric` or `Hermitian` argument must be one
 that stores that triangle. Columns are formed one at a time and the trailing update is deferred,
 then flushed every `s` columns through `rankk!(C, A, alpha, beta; uplo)`, which defaults to a
@@ -112,7 +112,7 @@ function cholesky_crout(
 end
 
 """
-    cholesky_crout!(F::UpdatableCholesky, A; s = 64, uplo = :L, rankk! = default_rankk!) -> F
+    cholesky_crout!(F::ModifiableCholesky, A; s = 64, uplo = :L, rankk! = default_rankk!) -> F
 
 Factor the Hermitian positive definite matrix `A` as `L*L'` into the existing `F`, overwriting
 its own storage. `A` is destroyed: it is used directly as the algorithm's working matrix,
@@ -128,7 +128,7 @@ On `PosDefException`, `F`'s storage has already been partially overwritten; unli
 verbs, `issuccess(F)` does not reflect this, so `F` must be rebuilt rather than reused.
 """
 function cholesky_crout!(
-        F::UpdatableCholesky{T}, A::AbstractMatrix{T}; s::Int = 64, uplo::Symbol = :L,
+        F::ModifiableCholesky{T}, A::AbstractMatrix{T}; s::Int = 64, uplo::Symbol = :L,
         rankk! = default_rankk!
     ) where {T}
     Base.require_one_based_indexing(A)
@@ -223,7 +223,7 @@ function _lu_crout_kernel!(
 end
 
 # Divide the raw Crout factor's diagonal out into `d` and set it to one, turning `L` into the
-# unit lower triangular factor `UpdatableLU` stores. `Ut` needs no equivalent step: it is already
+# unit lower triangular factor `ModifiableLU` stores. `Ut` needs no equivalent step: it is already
 # unit lower triangular, since its diagonal starts at one and the loop above only ever writes
 # its strictly lower entries.
 function _lu_finish!(L, d::AbstractVector{T}, n::Int) where {T}
@@ -240,7 +240,7 @@ end
 """
     lu_crout(A; s = 64, pivot = RowMaximum(), rtol = 0, matmul! = mul!)
 
-Factor the square matrix `A` as `P*A = L*U` and return an `UpdatableLU`. Columns of `L` and rows
+Factor the square matrix `A` as `P*A = L*U` and return an `ModifiableLU`. Columns of `L` and rows
 of `U` are formed one at a time and the trailing update is deferred, then flushed every `s`
 columns through `matmul!(C, A, B, alpha, beta)`, which defaults to `LinearAlgebra.mul!`.
 
@@ -273,17 +273,17 @@ function lu_crout(
     d = Vector{T}(undef, n)
     _lu_finish!(L, d, n)
     # `work` holds both of the rank-1 update's consumed vectors, so the update allocates nothing.
-    return UpdatableLU{T, Matrix{T}}(L, d, Ut, p, zeros(T, 2n), 0)
+    return ModifiableLU{T, Matrix{T}}(L, d, Ut, p, zeros(T, 2n), 0)
 end
 
 """
-    lu_crout!(F::UpdatableLU, A; s = 64, pivot = RowMaximum(), rtol = 0, matmul! = mul!) -> F
+    lu_crout!(F::ModifiableLU, A; s = 64, pivot = RowMaximum(), rtol = 0, matmul! = mul!) -> F
 
 Factor the square matrix `A` as `P*A = L*U` into the existing `F`, overwriting its own storage.
 `A` is destroyed: it is used directly as the algorithm's working matrix, exactly as
 `LinearAlgebra.lu!` destroys its argument.
 
-`UpdatableLU` has no capacity beyond its own size, so this throws `ArgumentError` naming
+`ModifiableLU` has no capacity beyond its own size, so this throws `ArgumentError` naming
 `size(F, 1)` and `size(A, 1)` when they differ, rather than resizing.
 
 A caller who refactorizes repeatedly into the same `F`, at the same size every time, allocates
@@ -294,7 +294,7 @@ On `ZeroPivotException`, `F`'s storage has already been partially overwritten; `
 `false` afterwards, matching the updating verbs, and `F` must be rebuilt rather than reused.
 """
 function lu_crout!(
-        F::UpdatableLU{T}, A::AbstractMatrix{T}; s::Int = 64, pivot = RowMaximum(),
+        F::ModifiableLU{T}, A::AbstractMatrix{T}; s::Int = 64, pivot = RowMaximum(),
         rtol::Real = 0, matmul! = mul!
     ) where {T}
     Base.require_one_based_indexing(A)
@@ -379,10 +379,10 @@ function _qr_bcgs_kernel!(
 end
 
 """
-    qr_bcgs(A; s = 64, reorth = true, rtol = 0, capacity = (2m, 2n), matmul! = mul!) -> UpdatableQR
+    qr_bcgs(A; s = 64, reorth = true, rtol = 0, capacity = (2m, 2n), matmul! = mul!) -> ModifiableQR
 
 Factor the `m` by `n` matrix `A` with `m >= n` by block classical Gram-Schmidt and return it as an
-[`UpdatableQR`](@ref) holding the thin `Q` (`m` by `n`, orthonormal columns) and the upper
+[`ModifiableQR`](@ref) holding the thin `Q` (`m` by `n`, orthonormal columns) and the upper
 triangular `R`, ready for the updating verbs. Columns are orthogonalized one at a time against
 the current block and the accumulated projection against earlier blocks is deferred, then
 flushed every `s` columns through `matmul!(C, A, B, alpha, beta)`, which defaults to
@@ -439,7 +439,7 @@ function qr_bcgs(
 end
 
 """
-    qr_bcgs!(F::UpdatableQR, A; s = 64, reorth = true, rtol = 0, matmul! = mul!) -> F
+    qr_bcgs!(F::ModifiableQR, A; s = 64, reorth = true, rtol = 0, matmul! = mul!) -> F
 
 Factor the `m` by `n` matrix `A` with `m >= n` by block classical Gram-Schmidt into the existing
 `F`, overwriting its own storage. `A` is destroyed: it is used directly as the algorithm's
@@ -455,7 +455,7 @@ On that `ArgumentError`, `F`'s storage has already been partially overwritten; u
 updating verbs, `issuccess(F)` does not reflect this, so `F` must be rebuilt rather than reused.
 """
 function qr_bcgs!(
-        F::UpdatableQR{T, S, <:DenseQ}, A::AbstractMatrix{T}; s::Int = 64, reorth::Bool = true,
+        F::ModifiableQR{T, S, <:DenseQ}, A::AbstractMatrix{T}; s::Int = 64, reorth::Bool = true,
         rtol::Real = 0, matmul!::MF = mul!
     ) where {T, S, MF}
     # `matmul!` is pinned to its own type parameter `MF`: left bare, the call into

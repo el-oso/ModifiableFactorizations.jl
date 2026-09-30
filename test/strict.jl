@@ -2,7 +2,7 @@
     using LinearAlgebra, StrictModeTest, Test, Random
     Random.seed!(20260908)
     n = 8
-    G = UpdatableLU(lu(randn(n, n) + n * I))
+    G = ModifiableLU(lu(randn(n, n) + n * I))
     u = randn(n)
     v = randn(n)
     @test_typestable lowrankupdate!(G, u, v)
@@ -14,7 +14,7 @@ end
     Random.seed!(20260908)
     n = 8
     B = randn(n, n)
-    mk() = UpdatableCholesky(cholesky(Symmetric(B * B' + n * I)))
+    mk() = ModifiableCholesky(cholesky(Symmetric(B * B' + n * I)))
     v = randn(n) ./ 4
     @test_typestable lowrankupdate!(mk(), v)
     @test_noalloc lowrankupdate!(mk(), v)
@@ -23,7 +23,7 @@ end
 end
 
 @testitem "updating verbs allocate nothing and are type stable with checks disabled" begin
-    using UpdatableFactorizations
+    using ModifiableFactorizations
     # `StrictMode.checks_enabled()` is a `const` baked in at precompile time, so no in-process
     # trick can flip it for the four `@strict`-guarded kernels; this proof needs a real separate
     # process running under the disabled preference. `mktempdir` keeps that preference out of
@@ -35,7 +35,7 @@ end
         "[StrictMode]\nchecks_enabled = false\n"
     )
     script = joinpath(@__DIR__, "strict_gate_subprocess.jl")
-    pkgroot = pkgdir(UpdatableFactorizations)
+    pkgroot = pkgdir(ModifiableFactorizations)
     # `Pkg.test` puts its sandbox on `JULIA_LOAD_PATH`, and a subprocess inheriting that variable
     # cannot load a standard library: the script's own `using Pkg` fails. Naming the load path
     # explicitly gives it the temporary project and the standard libraries and nothing else.
@@ -91,13 +91,13 @@ end
 
 @testitem "factorization invariants hold after every operation" begin
     using LinearAlgebra, Test, Random
-    using UpdatableFactorizations: TypeContracts
+    using ModifiableFactorizations: TypeContracts
     using .TypeContracts: behavior_passes
     Random.seed!(20260908)
     n = 7
     B = randn(n, n)
     A = Matrix(Symmetric(B * B' + n * I))
-    F = UpdatableCholesky(cholesky(Symmetric(A, :L)))
+    F = ModifiableCholesky(cholesky(Symmetric(A, :L)))
     lowrankupdate!(F, randn(n))
     lowrankdowndate!(F, randn(n) ./ 16)
     delete_column!(F, 3)
@@ -107,11 +107,11 @@ end
     x = randn(F.n + 1) ./ 10
     x[2] = n + 10.0
     insert_column!(F, 2, x)
-    @test behavior_passes(UpdatableCholesky, [F])
+    @test behavior_passes(ModifiableCholesky, [F])
 
-    G = UpdatableLU(lu(randn(n, n) + n * I))
+    G = ModifiableLU(lu(randn(n, n) + n * I))
     lowrankupdate!(G, randn(n), randn(n))
-    @test behavior_passes(UpdatableLU, [G])
+    @test behavior_passes(ModifiableLU, [G])
 end
 
 @testitem "Cholesky resizing allocates nothing after construction" begin
@@ -120,7 +120,7 @@ end
     function measure(n)
         function mk()
             B = randn(n, n)
-            return UpdatableCholesky(cholesky(Symmetric(B * B' + n * I)))
+            return ModifiableCholesky(cholesky(Symmetric(B * B' + n * I)))
         end
         append = zeros(n + 1)
         append[n + 1] = 100.0
@@ -131,13 +131,13 @@ end
         end
         A, B, C, D = mk(), mk(), mk(), mk()
         shift_columns!(A, 1, n)
-        UpdatableFactorizations._append!(B, append)
+        ModifiableFactorizations._append!(B, append)
         insert_column!(C, 2, insert)
         E, G, H, K = mk(), mk(), mk(), mk()
         return (
             @allocated(delete_column!(E, 3)),
             @allocated(shift_columns!(G, 1, n)),
-            @allocated(UpdatableFactorizations._append!(H, append)),
+            @allocated(ModifiableFactorizations._append!(H, append)),
             @allocated(insert_column!(K, 2, insert)),
         )
     end
@@ -146,25 +146,25 @@ end
 
 @testitem "QR factorization invariants hold after every operation" begin
     using LinearAlgebra, Random, Test
-    using UpdatableFactorizations: TypeContracts
+    using ModifiableFactorizations: TypeContracts
     using .TypeContracts: behavior_passes
 
     Random.seed!(20260908)
     m, n = 12, 5
     A = randn(m, n)
-    F = UpdatableQR(A)
+    F = ModifiableQR(A)
     lowrankupdate!(F, randn(m), randn(n))
     insert_column!(F, 2, randn(m))
     delete_column!(F, 4)
     shift_columns!(F, 1, 4)
     insert_row!(F, 3, randn(F.n))
     delete_row!(F, 7)
-    @test behavior_passes(UpdatableQR, [F])
+    @test behavior_passes(ModifiableQR, [F])
 end
 
 @testitem "QR factorization invariants hold across a long mixed sequence of verbs" begin
     using LinearAlgebra, Random, Test
-    using UpdatableFactorizations: TypeContracts
+    using ModifiableFactorizations: TypeContracts
     using .TypeContracts: behavior_passes
 
     # A stale, uncleared byte in one verb's vacated storage is invisible to a test that only
@@ -175,10 +175,10 @@ end
     shiftperm(n, i, j) = (p = collect(1:n); deleteat!(p, i); insert!(p, j, i); p)
 
     Aref = randn(10, 4)
-    F = UpdatableQR(Aref; capacity = (10, 4))   # tight capacity: the first two verbs must grow it
+    F = ModifiableQR(Aref; capacity = (10, 4))   # tight capacity: the first two verbs must grow it
 
     function checkstate(F, Aref)
-        @test behavior_passes(UpdatableQR, [F])
+        @test behavior_passes(ModifiableQR, [F])
         @test norm(F.Q * F.R - Aref) / norm(Aref) < 1.0e-10
     end
     checkstate(F, Aref)
@@ -244,7 +244,7 @@ end
 
     Random.seed!(20260908)
     function measure(::Type{T}, m, n) where {T}
-        mk() = UpdatableQR(randn(T, m, n))
+        mk() = ModifiableQR(randn(T, m, n))
         u = randn(T, m)
         v = randn(T, n)
         x = randn(T, m)
@@ -278,14 +278,14 @@ end
     Random.seed!(20260908)
     for T in (Float64, ComplexF64)
         m, n = 40, 12
-        F = UpdatableQR(randn(T, m, n))
+        F = ModifiableQR(randn(T, m, n))
         u = randn(T, m)
         v = randn(T, n)
         @test_typestable lowrankupdate!(F, u, v)
         @test_noalloc lowrankupdate!(F, u, v)
-        G = UpdatableQR(randn(T, m, n))
+        G = ModifiableQR(randn(T, m, n))
         @test_typestable delete_row!(G, 3)
-        H = UpdatableQR(randn(T, m, n))
+        H = ModifiableQR(randn(T, m, n))
         # `_project_residual!` accumulates `w += corr` with an explicit loop rather than
         # broadcasting, so AllocCheck's aliasing analysis has no `copyto!`/broadcast path left
         # to flag on two same-typed `SubArray`s. `delete_row!` carries no `@strict` guard of
@@ -363,16 +363,16 @@ end
     end
 end
 
-@testitem "UpdatableCholesky satisfies its strict contract" begin
+@testitem "ModifiableCholesky satisfies its strict contract" begin
     using LinearAlgebra, StrictModeTest, Test, Random
-    using UpdatableFactorizations: TypeContracts, StrictMode
+    using ModifiableFactorizations: TypeContracts, StrictMode
     Random.seed!(20260908)
-    const_type = UpdatableCholesky{Float64, Float64, Matrix{Float64}}
+    const_type = ModifiableCholesky{Float64, Float64, Matrix{Float64}}
     @test TypeContracts.check_contract(const_type).passed
 
     n = 8
     B = randn(n, n)
-    mk() = UpdatableCholesky(cholesky(Symmetric(B * B' + n * I)))
+    mk() = ModifiableCholesky(cholesky(Symmetric(B * B' + n * I)))
     x = randn(n + 1) ./ 10
     x[2] = n + 10.0
     v = randn(n) ./ 4
@@ -398,34 +398,34 @@ end
     end
 end
 
-@testitem "UpdatableLU satisfies its strict contract" begin
+@testitem "ModifiableLU satisfies its strict contract" begin
     using LinearAlgebra, StrictModeTest, Test, Random
-    using UpdatableFactorizations: TypeContracts, StrictMode
+    using ModifiableFactorizations: TypeContracts, StrictMode
     Random.seed!(20260908)
-    const_type = UpdatableLU{Float64, Matrix{Float64}}
+    const_type = ModifiableLU{Float64, Matrix{Float64}}
     @test TypeContracts.check_contract(const_type).passed
 
     n = 8
     u, v = randn(n), randn(n)
     for _ in 1:4                            # compile every kernel before measuring
-        lowrankupdate!(UpdatableLU(lu(randn(n, n) + n * I)), u, v)
+        lowrankupdate!(ModifiableLU(lu(randn(n, n) + n * I)), u, v)
     end
-    G = UpdatableLU(lu(randn(n, n) + n * I))
+    G = ModifiableLU(lu(randn(n, n) + n * I))
     StrictMode.@verify_strict const_type begin
         lowrankupdate!(G, u, v)
         size(G)
     end
 end
 
-@testitem "UpdatableQR satisfies its strict contract" begin
+@testitem "ModifiableQR satisfies its strict contract" begin
     using LinearAlgebra, StrictModeTest, Test, Random
-    using UpdatableFactorizations: TypeContracts, StrictMode, DenseQ, capacity
+    using ModifiableFactorizations: TypeContracts, StrictMode, DenseQ, capacity
     Random.seed!(20260908)
-    const_type = UpdatableQR{Float64, Matrix{Float64}, DenseQ{Float64, Matrix{Float64}}}
+    const_type = ModifiableQR{Float64, Matrix{Float64}, DenseQ{Float64, Matrix{Float64}}}
     @test TypeContracts.check_contract(const_type).passed
 
     m, n = 12, 5
-    mk() = UpdatableQR(randn(m, n))
+    mk() = ModifiableQR(randn(m, n))
     for F in (mk(), mk(), mk(), mk(), mk(), mk())   # compile every kernel before measuring
         insert_column!(F, 2, randn(m))
         delete_column!(F, 4)
@@ -454,8 +454,8 @@ end
     # Signatures, not values: the sweep proves the guarantee for a concrete specialization
     # without constructing one. The rank-1 update verbs are proven on values by the items above.
     for T in (Float64, ComplexF64)
-        Q = UpdatableQR{T, Matrix{T}, UpdatableFactorizations.DenseQ{T, Matrix{T}}}
-        C = UpdatableCholesky{T, real(T), Matrix{T}}
+        Q = ModifiableQR{T, Matrix{T}, ModifiableFactorizations.DenseQ{T, Matrix{T}}}
+        C = ModifiableCholesky{T, real(T), Matrix{T}}
         findings = test_signatures(
             [
                 (delete_row!, (Q, Int)),

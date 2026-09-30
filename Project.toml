@@ -1,4 +1,4 @@
-name = "UpdatableFactorizations"
+name = "ModifiableFactorizations"
 uuid = "621fe788-1cd9-43f6-8fef-7c11cfb05286"
 version = "0.1.0"
 authors = ["el_oso"]

@@ -23,7 +23,7 @@ xaxis(family) = family == "qr" ? "m" : "n"
 
 # This package's own rows, and the color reserved for them everywhere. Wong's palette carries no
 # red, so this never collides with a comparison's color.
-const OURS = "UpdatableFactorizations"
+const OURS = "ModifiableFactorizations"
 const OURS_COLOR = RGBf(0.78, 0.09, 0.13)
 
 function panel!(ax, cells, routine, key, colors)
@@ -84,13 +84,13 @@ function figure(rows, family, title)
 end
 
 # The convention held throughout this page: every ratio is a reference time divided by
-# UpdatableFactorizations' time (or, for a prior-art row, that package's own time), so a value
+# ModifiableFactorizations' time (or, for a prior-art row, that package's own time), so a value
 # above 1.00 means the row runs faster than the reference and a value below 1.00 means it runs
 # slower. The reference for an updating verb is `recompute`: throwing the factorization away and
 # calling `cholesky`, `lu` or `qr` again.
 speedup(base, cand) = base["median_seconds"] / cand["median_seconds"]
 
-# Whether UpdatableFactorizations' own verb beats recomputing, size by size, for one routine.
+# Whether ModifiableFactorizations' own verb beats recomputing, size by size, for one routine.
 # `nothing` values (a routine measured only at some sizes) never occur here -- every routine in
 # the case matrix is measured at every size in its family -- so every ratio compares.
 function verdict_row(rows, family, routine)
@@ -100,7 +100,7 @@ function verdict_row(rows, family, routine)
     for size in sort(unique(r[key] for r in cells))
         here = filter(r -> r[key] == size, cells)
         base = only(filter(r -> r["variant"] == "recompute", here))
-        ours = only(filter(r -> r["variant"] == "UpdatableFactorizations", here))
+        ours = only(filter(r -> r["variant"] == "ModifiableFactorizations", here))
         push!(ratios, size => speedup(base, ours))
     end
     losses = [size for (size, ratio) in ratios if ratio < 1]
@@ -123,7 +123,7 @@ function rival_verdict(rows, family, routine)
     cells = filter(r -> r["family"] == family && r["routine"] == routine, rows)
     others = unique(
         r["variant"] for r in cells
-            if !(r["variant"] in ("recompute", "UpdatableFactorizations"))
+            if !(r["variant"] in ("recompute", "ModifiableFactorizations"))
     )
     isempty(others) && return "-", "no other implementation measured"
     best = nothing
@@ -132,7 +132,7 @@ function rival_verdict(rows, family, routine)
         for size in sort(unique(r[key] for r in cells))
             here = filter(r -> r[key] == size, cells)
             theirs = filter(r -> r["variant"] == name, here)
-            ours = only(filter(r -> r["variant"] == "UpdatableFactorizations", here))
+            ours = only(filter(r -> r["variant"] == "ModifiableFactorizations", here))
             isempty(theirs) && continue
             push!(ratios, size => speedup(only(theirs), ours))
         end

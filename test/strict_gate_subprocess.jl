@@ -11,7 +11,7 @@
 # invisible to the parent.
 #
 # `StrictMode` must be a direct dependency of this project, not merely a transitive one through
-# `UpdatableFactorizations`: Preferences.jl only reads a `LocalPreferences.toml` entry for packages
+# `ModifiableFactorizations`: Preferences.jl only reads a `LocalPreferences.toml` entry for packages
 # an environment depends on directly.
 #
 # This does NOT load `StrictModeTest`: its `__init__` unconditionally refuses to load whenever
@@ -28,8 +28,8 @@ Pkg.develop(path = ARGS[1])
 Pkg.add("StrictMode")
 Pkg.add("JET")
 
-using UpdatableFactorizations, LinearAlgebra, Random, JET
-using UpdatableFactorizations: StrictMode
+using ModifiableFactorizations, LinearAlgebra, Random, JET
+using ModifiableFactorizations: StrictMode
 
 println("checks_enabled\t", StrictMode.checks_enabled())
 
@@ -68,7 +68,7 @@ end
 function measure_qr(T)
     Random.seed!(20260908)
     m, n = 80, 50
-    mk() = UpdatableQR(randn(T, m, n))
+    mk() = ModifiableQR(randn(T, m, n))
     u, v = randn(T, m), randn(T, n)
     x, row = randn(T, m), randn(T, n)
     for F in (mk(), mk(), mk(), mk(), mk(), mk())   # compile every kernel before measuring
@@ -94,7 +94,7 @@ function measure_cholesky(T)
     n = 40
     Bmat = randn(T, n, n)
     A = Matrix(Hermitian(Bmat * Bmat' + n * I))
-    mk() = UpdatableCholesky(cholesky(Hermitian(A, :L)))
+    mk() = ModifiableCholesky(cholesky(Hermitian(A, :L)))
     v = randn(T, n) ./ 4
     for _ in 1:6                            # compile every kernel before measuring
         lowrankupdate!(mk(), v)
@@ -109,8 +109,8 @@ function measure_cholesky(T)
     A2 = Matrix(Hermitian(B2 * B2' + n1 * I))
     j = 3
     keep = [k for k in 1:n1 if k != j]
-    mk_full() = UpdatableCholesky(cholesky(Hermitian(A2, :L)))               # size n+1
-    mk_reduced() = UpdatableCholesky(cholesky(Hermitian(A2[keep, keep], :L))) # size n
+    mk_full() = ModifiableCholesky(cholesky(Hermitian(A2, :L)))               # size n+1
+    mk_reduced() = ModifiableCholesky(cholesky(Hermitian(A2[keep, keep], :L))) # size n
     col = A2[:, j]
     for _ in 1:6                            # compile every kernel before measuring
         delete_column!(mk_full(), j)
@@ -127,7 +127,7 @@ end
 function measure_lu(T)
     Random.seed!(20260908)
     n = 40
-    mk() = UpdatableLU(lu(randn(T, n, n) + n * I))
+    mk() = ModifiableLU(lu(randn(T, n, n) + n * I))
     u, v = randn(T, n), randn(T, n)
     for _ in 1:6                            # compile every kernel before measuring
         lowrankupdate!(mk(), u, v)
@@ -144,7 +144,7 @@ end
 function check_typestable_kernels(T)
     Random.seed!(20260908)
     m, n = 80, 50
-    F = UpdatableQR(randn(T, m, n))
+    F = ModifiableQR(randn(T, m, n))
     uq, vq = randn(T, m), randn(T, n)
     check_typestable("QR lowrankupdate! $T", lowrankupdate!, F, uq, vq)
 
@@ -152,13 +152,13 @@ function check_typestable_kernels(T)
     Bmat = randn(T, nc, nc)
     A = Matrix(Hermitian(Bmat * Bmat' + nc * I))
     vc = randn(T, nc) ./ 4
-    C1 = UpdatableCholesky(cholesky(Hermitian(A, :L)))
+    C1 = ModifiableCholesky(cholesky(Hermitian(A, :L)))
     check_typestable("Cholesky lowrankupdate! $T", lowrankupdate!, C1, vc)
-    C2 = UpdatableCholesky(cholesky(Hermitian(A, :L)))
+    C2 = ModifiableCholesky(cholesky(Hermitian(A, :L)))
     check_typestable("Cholesky lowrankdowndate! $T", lowrankdowndate!, C2, vc)
 
     nl = 40
-    G = UpdatableLU(lu(randn(T, nl, nl) + nl * I))
+    G = ModifiableLU(lu(randn(T, nl, nl) + nl * I))
     ul, vl = randn(T, nl), randn(T, nl)
     check_typestable("LU lowrankupdate! $T", lowrankupdate!, G, ul, vl)
     return nothing

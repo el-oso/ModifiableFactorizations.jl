@@ -1,6 +1,6 @@
-# UpdatableFactorizations.jl
+# ModifiableFactorizations.jl
 
-UpdatableFactorizations.jl keeps a Cholesky, LU or QR factorization current as the matrix it
+ModifiableFactorizations.jl keeps a Cholesky, LU or QR factorization current as the matrix it
 factors is modified, instead of recomputing the factorization from scratch. It supports rank-1
 update and downdate, symmetric insertion, deletion and shifting of indices for Cholesky, and
 rank-1 update and column and row insertion, deletion and shifting for QR.
@@ -14,8 +14,8 @@ allocation-free behavior only when `StrictMode.checks_enabled()` is false — se
 [Updating and downdating](@ref) for the measured byte counts.
 
 The Cholesky rank-1 update and downdate extend `LinearAlgebra.lowrankupdate!` and
-`LinearAlgebra.lowrankdowndate!` with methods for `UpdatableCholesky`, and the QR rank-1 update
-extends `LinearAlgebra.lowrankupdate!` with a method for `UpdatableQR`, rather than replacing the
+`LinearAlgebra.lowrankdowndate!` with methods for `ModifiableCholesky`, and the QR rank-1 update
+extends `LinearAlgebra.lowrankupdate!` with a method for `ModifiableQR`, rather than replacing the
 existing methods those functions already provide for `Cholesky` and `QR`.
 
 The package also builds a factorization from scratch with three algorithms from Camarero,
@@ -27,6 +27,6 @@ accuracy.
 
 See [Getting started](@ref) to construct a factorization, [Construction](@ref) for the
 Camarero-derived construction routines, [Updating and downdating](@ref) for a worked example of
-each update operation, [Q representations](@ref) for how `UpdatableQR` stores its orthonormal
+each update operation, [Q representations](@ref) for how `ModifiableQR` stores its orthonormal
 factor, and [Provenance](@ref) for the article each algorithm derives from and the reference
 implementations consulted during development.

@@ -1,7 +1,7 @@
 """
     AbstractQRep{T}
 
-Orthonormal factor of an [`UpdatableQR`](@ref), `m x n` with `m >= n`. A representation stores
+Orthonormal factor of an [`ModifiableQR`](@ref), `m x n` with `m >= n`. A representation stores
 whatever it likes, so long as it answers the five operations of its contract; `Base.Matrix` and
 `Base.size(q, dim)` are derived from those and need no per-representation method.
 
@@ -18,7 +18,7 @@ returns itself.
 """
 function materialize end
 
-@contract AbstractQRep{T} "The orthonormal factor of an UpdatableQR." begin
+@contract AbstractQRep{T} "The orthonormal factor of an ModifiableQR." begin
     Base.size(::Self)::Tuple{Int, Int} => "the shape of the active factor"
     Base.copyto!(::AbstractMatrix, ::Self) => "write the active factor densely"
     materialize(::Self) => "an explicitly stored equivalent"

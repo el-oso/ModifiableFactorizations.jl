@@ -5,12 +5,12 @@ at a time, defers the trailing update, and flushes it every `s` columns through 
 can replace.
 
 ```julia
-using UpdatableFactorizations, LinearAlgebra
+using ModifiableFactorizations, LinearAlgebra
 
 A = let B = randn(400, 400); Matrix(Symmetric(B * B' + 400I)) end
-F = cholesky_crout(A; s = 64)      # an UpdatableCholesky, ready to update
+F = cholesky_crout(A; s = 64)      # an ModifiableCholesky, ready to update
 G = lu_crout(randn(400, 400); s = 64)   # partial pivoting, as LinearAlgebra.lu does
-H = qr_bcgs(randn(600, 400); s = 64)    # an UpdatableQR, ready to update
+H = qr_bcgs(randn(600, 400); s = 64)    # an ModifiableQR, ready to update
 ```
 
 ## Refactorizing in place
@@ -22,7 +22,7 @@ when the target's capacity cannot hold the result. A caller who refactors the sa
 repeatedly, at a size no larger than it was built with, allocates nothing after the first call:
 
 ```julia
-using UpdatableFactorizations, LinearAlgebra
+using ModifiableFactorizations, LinearAlgebra
 
 n = 400
 A0 = let B = randn(n, n); Matrix(Symmetric(B * B' + n * I)) end
@@ -34,7 +34,7 @@ for k in 1:1000
 end
 ```
 
-`UpdatableLU` has no capacity beyond its own size, so `lu_crout!` requires the target's size to
+`ModifiableLU` has no capacity beyond its own size, so `lu_crout!` requires the target's size to
 match exactly rather than merely bound it.
 
 `cholesky_crout!` and `qr_bcgs!`, having genuine spare capacity, also support refactorizing into

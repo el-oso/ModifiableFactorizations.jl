@@ -5,6 +5,7 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+ModifiableFactorizations = "621fe788-1cd9-43f6-8fef-7c11cfb05286"
 OpenBLAS32_jll = "656ef2d0-ae68-5445-9ca0-591084a874a2"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 QRupdate = "29d2ae51-7246-454b-9a65-19ff7b2849a5"
@@ -13,8 +14,10 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StrictMode = "0e98b4f4-d0e6-42ac-af0a-707c24852f32"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 UpdatableCholeskyFactorizations = "1a1c1746-0e7b-45d0-811e-72e8bb59686c"
-UpdatableFactorizations = "621fe788-1cd9-43f6-8fef-7c11cfb05286"
 UpdatableQRFactorizations = "8b110c62-ada2-4dd7-b53a-29f29fe8f7f4"
+
+[sources]
+ModifiableFactorizations = {path = ".."}
 
 [compat]
 CairoMakie = "0.15"

@@ -40,7 +40,7 @@ function _retriangularize_hessenberg!(
 end
 
 """
-    delete_column!(F::UpdatableQR, j) -> F
+    delete_column!(F::ModifiableQR, j) -> F
 
 Remove column `j` of the factored matrix, in `O((n - j)(m + n))` operations.
 
@@ -50,7 +50,7 @@ so an early deletion costs the whole factor and a late one costs almost nothing.
 
 Golub and Van Loan, *Matrix Computations*, 4th edition, section 6.5.
 """
-function delete_column!(F::UpdatableQR{T, S, <:DenseQ}, j::Integer) where {T, S}
+function delete_column!(F::ModifiableQR{T, S, <:DenseQ}, j::Integer) where {T, S}
     n = F.n
     1 <= j <= n || throw(BoundsError(F, j))
     q = getfield(F, :qrep)
@@ -72,7 +72,7 @@ function delete_column!(F::UpdatableQR{T, S, <:DenseQ}, j::Integer) where {T, S}
 end
 
 """
-    shift_columns!(F::UpdatableQR, i, j) -> F
+    shift_columns!(F::ModifiableQR, i, j) -> F
 
 Move column `i` of the factored matrix to position `j`, sliding the columns between them by one,
 in `O(|i - j|(m + n))` operations.
@@ -83,7 +83,7 @@ leaves a single spike in column `j`. Rotations clear both.
 Reichel and Gragg, *Algorithm 686: FORTRAN subroutines for updating the QR decomposition*,
 ACM Transactions on Mathematical Software 16 (1990), 369-377.
 """
-function shift_columns!(F::UpdatableQR{T, S, <:DenseQ}, i::Integer, j::Integer) where {T, S}
+function shift_columns!(F::ModifiableQR{T, S, <:DenseQ}, i::Integer, j::Integer) where {T, S}
     n = F.n
     1 <= i <= n || throw(BoundsError(F, i))
     1 <= j <= n || throw(BoundsError(F, j))
@@ -127,7 +127,7 @@ function shift_columns!(F::UpdatableQR{T, S, <:DenseQ}, i::Integer, j::Integer) 
 end
 
 """
-    delete_row!(F::UpdatableQR, i; rtol = sqrt(eps(real(T)))) -> F
+    delete_row!(F::ModifiableQR, i; rtol = sqrt(eps(real(T)))) -> F
 
 Remove row `i` of the factored matrix, in `O(mn)` operations.
 
@@ -153,7 +153,7 @@ Reichel and Gragg, *Algorithm 686: FORTRAN subroutines for updating the QR decom
 ACM Transactions on Mathematical Software 16 (1990), 369-377.
 """
 function delete_row!(
-        F::UpdatableQR{T, S, <:DenseQ}, i::Integer; rtol::Real = sqrt(eps(real(T)))
+        F::ModifiableQR{T, S, <:DenseQ}, i::Integer; rtol::Real = sqrt(eps(real(T)))
     ) where {T, S}
     m, n = F.m, F.n
     1 <= i <= m || throw(BoundsError(F, i))
@@ -265,7 +265,7 @@ function _absorb_spike!(RA, z, q, v, iv, n, last)
 end
 
 """
-    lowrankupdate!(F::UpdatableQR, u, v; rtol = sqrt(eps(real(T)))) -> F
+    lowrankupdate!(F::ModifiableQR, u, v; rtol = sqrt(eps(real(T)))) -> F
 
 Replace the factorization of `A` with that of `A + u*v'` in `O(mn)` operations. Neither `u` nor
 `v` is modified.
@@ -293,7 +293,7 @@ Gram-Schmidt QR factorization*, Mathematics of Computation 30 (1976), 772-795.
 Golub and Van Loan, *Matrix Computations*, 4th edition, section 6.5.
 """
 function LinearAlgebra.lowrankupdate!(
-        F::UpdatableQR{T, S, <:DenseQ}, u::AbstractVector, v::AbstractVector;
+        F::ModifiableQR{T, S, <:DenseQ}, u::AbstractVector, v::AbstractVector;
         rtol::Real = sqrt(eps(real(T)))
     ) where {T, S}
     m, n = F.m, F.n
@@ -366,7 +366,7 @@ function LinearAlgebra.lowrankupdate!(
 end
 
 """
-    insert_column!(F::UpdatableQR, j, x; rtol = sqrt(eps(real(T)))) -> F
+    insert_column!(F::ModifiableQR, j, x; rtol = sqrt(eps(real(T)))) -> F
 
 Insert `x` as column `j` of the factored matrix, in `O(mn + n|n + 1 - j|)` operations. `x` is
 not modified.
@@ -389,7 +389,7 @@ Daniel, Gragg, Kaufman and Stewart, *Reorthogonalization and stable algorithms f
 Gram-Schmidt QR factorization*, Mathematics of Computation 30 (1976), 772-795.
 """
 function insert_column!(
-        F::UpdatableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector;
+        F::ModifiableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector;
         rtol::Real = sqrt(eps(real(T)))
     ) where {T, S}
     inserted, rho = _insert_column!(F, j, x, rtol)
@@ -399,7 +399,7 @@ function insert_column!(
 end
 
 """
-    try_insert_column!(F::UpdatableQR, j, x; rtol = sqrt(eps(real(T)))) -> Bool
+    try_insert_column!(F::ModifiableQR, j, x; rtol = sqrt(eps(real(T)))) -> Bool
 
 Insert `x` as column `j`, or report that it lies in the range of the columns already there.
 
@@ -417,7 +417,7 @@ does not match, or a factorization already square are all mistakes in the call r
 facts about the column, and still throw.
 """
 function try_insert_column!(
-        F::UpdatableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector;
+        F::ModifiableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector;
         rtol::Real = sqrt(eps(real(T)))
     ) where {T, S}
     inserted, _ = _insert_column!(F, j, x, rtol)
@@ -429,7 +429,7 @@ end
 # diagonal entry of `R`, and the quantity the rank test reads. `F` is untouched when
 # `inserted` is false.
 function _insert_column!(
-        F::UpdatableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector, rtol::Real
+        F::ModifiableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector, rtol::Real
     ) where {T, S}
     m, n = F.m, F.n
     1 <= j <= n + 1 || throw(BoundsError(F, j))
@@ -490,7 +490,7 @@ function _insert_column!(
 end
 
 """
-    insert_row!(F::UpdatableQR, i, x) -> F
+    insert_row!(F::ModifiableQR, i, x) -> F
 
 Insert `x` as row `i` of the factored matrix, in `O(mn + n^2)` operations. `x` is the new row,
 not its adjoint, and is not modified.
@@ -505,7 +505,7 @@ factor. A caller that inserts rows in a loop should pre-size with `capacity`.
 Golub and Van Loan, *Matrix Computations*, 4th edition, section 6.5.
 """
 function insert_row!(
-        F::UpdatableQR{T, S, <:DenseQ}, i::Integer, x::AbstractVector
+        F::ModifiableQR{T, S, <:DenseQ}, i::Integer, x::AbstractVector
     ) where {T, S}
     m, n = F.m, F.n
     1 <= i <= m + 1 || throw(BoundsError(F, i))

@@ -5,7 +5,7 @@
         B = randn(T, 7, 7)
         A = Matrix(Hermitian(B * B' + 7I))
         v = randn(T, 7)
-        F = UpdatableCholesky(cholesky(Hermitian(A, uplo)))
+        F = ModifiableCholesky(cholesky(Hermitian(A, uplo)))
         lowrankupdate!(F, v)
         L = F.L
         @test norm(L * L' - (A + v * v')) / norm(A) < 1.0e-13
@@ -19,7 +19,7 @@ end
     A = Matrix(Symmetric(B * B' + 6I))
     v = randn(6)
     vcopy = copy(v)
-    F = UpdatableCholesky(cholesky(Symmetric(A, :L)))
+    F = ModifiableCholesky(cholesky(Symmetric(A, :L)))
     lowrankupdate!(F, v)
     @test v == vcopy
 end
@@ -28,7 +28,7 @@ end
     using LinearAlgebra, Random
     Random.seed!(20260908)
     B = randn(6, 6)
-    F = UpdatableCholesky(cholesky(Symmetric(Matrix(Symmetric(B * B' + 6I)), :L)))
+    F = ModifiableCholesky(cholesky(Symmetric(Matrix(Symmetric(B * B' + 6I)), :L)))
     @test_throws "has length 5, factorization is 6" lowrankupdate!(F, randn(5))
 end
 
@@ -39,7 +39,7 @@ end
         B = randn(T, 7, 7)
         A = Matrix(Hermitian(B * B' + 7I))
         v = randn(T, 7) ./ 8
-        F = UpdatableCholesky(cholesky(Hermitian(A, uplo)))
+        F = ModifiableCholesky(cholesky(Hermitian(A, uplo)))
         lowrankdowndate!(F, v)
         L = F.L
         @test norm(L * L' - (A - v * v')) / norm(A) < 1.0e-13
@@ -51,7 +51,7 @@ end
     Random.seed!(20260908)
     B = randn(6, 6)
     A = Matrix(Symmetric(B * B' + 6I))
-    F = UpdatableCholesky(cholesky(Symmetric(A, :L)))
+    F = ModifiableCholesky(cholesky(Symmetric(A, :L)))
     # A - v*v' with v far larger than any direction of A cannot be positive definite.
     @test_throws PosDefException lowrankdowndate!(F, randn(6) .* 1000)
 end

@@ -1,8 +1,8 @@
-abstract type AbstractUpdatableQR{T} <: Factorization{T} end
+abstract type AbstractModifiableQR{T} <: Factorization{T} end
 
 """
-    UpdatableQR(G::Union{QR, QRCompactWY}; capacity = (2size(G, 1), 2size(G, 2)))
-    UpdatableQR(A::AbstractMatrix; capacity = (2size(A, 1), 2size(A, 2)))
+    ModifiableQR(G::Union{QR, QRCompactWY}; capacity = (2size(G, 1), 2size(G, 2)))
+    ModifiableQR(A::AbstractMatrix; capacity = (2size(A, 1), 2size(A, 2)))
 
 Thin QR factorization `A = Q*R` of an `m x n` matrix with `m >= n`, supporting rank-1 update,
 insertion, deletion and shifting of columns, and insertion and deletion of rows.
@@ -31,7 +31,7 @@ A thin QR does not determine the sign of its determinant, so `det`, `logdet` and
 are not defined, matching `LinearAlgebra.qr`. For a square factorization,
 `sum(log ∘ abs, diag(F.R))` is `log(abs(det(A)))`.
 """
-mutable struct UpdatableQR{T, S <: AbstractMatrix{T}, Q <: AbstractQRep{T}} <: AbstractUpdatableQR{T}
+mutable struct ModifiableQR{T, S <: AbstractMatrix{T}, Q <: AbstractQRep{T}} <: AbstractModifiableQR{T}
     qrep::Q          # active region is the leading m x n block; column n+1 is spare and zero
     factors::S       # (ncap+1) x (ncap+1); active region is the leading n x n block, and row
     #                  and column n+1 are spare and zero
@@ -53,13 +53,13 @@ function _wrap_qr(qbuf::Matrix{T}, rbuf::Matrix{T}, m::Int, n::Int) where {T}
             throw(ArgumentError("column $k is rank deficient: R[$k,$k] is zero"))
     end
     ncap = size(rbuf, 1) - 1
-    return UpdatableQR{T, Matrix{T}, DenseQ{T, Matrix{T}}}(
+    return ModifiableQR{T, Matrix{T}, DenseQ{T, Matrix{T}}}(
         DenseQ{T, Matrix{T}}(qbuf, m, n), rbuf, m, n,
         zeros(T, ncap + 1), zeros(T, ncap + 1), zeros(T, ncap + 1, ncap)
     )
 end
 
-function UpdatableQR(
+function ModifiableQR(
         G::Union{QR{T}, QRCompactWY{T}};
         capacity::Tuple{Integer, Integer} = (2size(G, 1), 2size(G, 2))
     ) where {T}
@@ -85,17 +85,17 @@ function UpdatableQR(
     return _wrap_qr(qbuf, rbuf, m, n)
 end
 
-UpdatableQR(A::AbstractMatrix; capacity = (2size(A, 1), 2size(A, 2))) =
-    UpdatableQR(qr(A); capacity)
+ModifiableQR(A::AbstractMatrix; capacity = (2size(A, 1), 2size(A, 2))) =
+    ModifiableQR(qr(A); capacity)
 
 """
-    UpdatableQR(Q::AbstractMatrix, R::AbstractMatrix; capacity = (2size(Q, 1), 2size(Q, 2)))
+    ModifiableQR(Q::AbstractMatrix, R::AbstractMatrix; capacity = (2size(Q, 1), 2size(Q, 2)))
 
 Wrap a thin factorization that has already been computed. `Q` is `m x n` with orthonormal
 columns and `R` is `n x n` upper triangular; neither is checked beyond its shape and a
 zero diagonal entry, so the caller owns the orthonormality of `Q`.
 """
-function UpdatableQR(
+function ModifiableQR(
         Q::AbstractMatrix{T}, R::AbstractMatrix{T};
         capacity::Tuple{Integer, Integer} = (2size(Q, 1), 2size(Q, 2))
     ) where {T}
@@ -120,60 +120,60 @@ function UpdatableQR(
 end
 
 """
-    qr_householder(A; capacity = (2size(A, 1), 2size(A, 2))) -> UpdatableQR
+    qr_householder(A; capacity = (2size(A, 1), 2size(A, 2))) -> ModifiableQR
 
 Factor the `m x n` matrix `A` with `m >= n` by Householder reflections and return it as an
-`UpdatableQR`. The factorization is `LinearAlgebra.qr`'s; this adds the updatable storage
+`ModifiableQR`. The factorization is `LinearAlgebra.qr`'s; this adds the updatable storage
 around it.
 
 This is the accuracy-preferring construction path. Orthogonality of `Q` is at machine precision
 whatever the condition number of `A`, which no Gram-Schmidt variant gives.
 """
 qr_householder(A::AbstractMatrix; capacity = (2size(A, 1), 2size(A, 2))) =
-    UpdatableQR(qr(A); capacity)
+    ModifiableQR(qr(A); capacity)
 
 # The active block of the stored triangular factor, that block plus the augmentation row every
 # verb builds in, and the spare column one verb parks a moved column in. All three are one
 # concrete SubArray type.
-_upper(F::UpdatableQR) = view(getfield(F, :factors), 1:F.n, 1:F.n)
-_raug(F::UpdatableQR) = view(getfield(F, :factors), 1:(F.n + 1), 1:F.n)
-_rspare(F::UpdatableQR) = view(getfield(F, :factors), 1:F.n, F.n + 1)
+_upper(F::ModifiableQR) = view(getfield(F, :factors), 1:F.n, 1:F.n)
+_raug(F::ModifiableQR) = view(getfield(F, :factors), 1:(F.n + 1), 1:F.n)
+_rspare(F::ModifiableQR) = view(getfield(F, :factors), 1:F.n, F.n + 1)
 
 """
-    capacity(F::UpdatableQR) -> Tuple{Int, Int}
+    capacity(F::ModifiableQR) -> Tuple{Int, Int}
 
 `(mcap, ncap)`, the largest shape `F` can reach before its storage is reallocated.
 """
-capacity(F::UpdatableQR) = capacity(getfield(F, :qrep))
+capacity(F::ModifiableQR) = capacity(getfield(F, :qrep))
 
-Base.size(F::UpdatableQR) = (F.m, F.n)
-function Base.size(F::UpdatableQR, dim::Integer)
+Base.size(F::ModifiableQR) = (F.m, F.n)
+function Base.size(F::ModifiableQR, dim::Integer)
     dim < 1 && throw(ArgumentError("dimension must be positive, got $dim"))
     return dim <= 2 ? size(F)[dim] : 1
 end
 
-function Base.getproperty(F::UpdatableQR{T, S, <:DenseQ}, s::Symbol) where {T, S}
+function Base.getproperty(F::ModifiableQR{T, S, <:DenseQ}, s::Symbol) where {T, S}
     s === :Q && return _active(getfield(F, :qrep))
     s === :R && return UpperTriangular(_upper(F))
     return getfield(F, s)
 end
 
-Base.propertynames(::UpdatableQR, private::Bool = false) =
-    private ? (:Q, :R, fieldnames(UpdatableQR)...) : (:Q, :R)
+Base.propertynames(::ModifiableQR, private::Bool = false) =
+    private ? (:Q, :R, fieldnames(ModifiableQR)...) : (:Q, :R)
 
 # Reconstruction goes through F.R, not the raw block: a test that compares Matrix(F) against a
 # target is then also a test that the stored block is triangular.
-Base.AbstractMatrix(F::UpdatableQR) = F.Q * F.R
-Base.Matrix(F::UpdatableQR) = Matrix(AbstractMatrix(F))
+Base.AbstractMatrix(F::ModifiableQR) = F.Q * F.R
+Base.Matrix(F::ModifiableQR) = Matrix(AbstractMatrix(F))
 
 # Every operation either completes or throws with the factorization left as it was.
-LinearAlgebra.issuccess(::UpdatableQR) = true
+LinearAlgebra.issuccess(::ModifiableQR) = true
 
 # Enlarge the storage to hold an `mneeded x nneeded` factorization, doubling only the dimension
 # that was exceeded. Both buffers are rebound, so a view taken before a call to this dangles.
 # The augmentation column is carried across with the active block, so a verb may build its new
 # direction there and grow afterwards.
-function _grow!(F::UpdatableQR{T, S, <:DenseQ}, mneeded::Int, nneeded::Int) where {T, S}
+function _grow!(F::ModifiableQR{T, S, <:DenseQ}, mneeded::Int, nneeded::Int) where {T, S}
     mcap, ncap = capacity(F)
     (mneeded <= mcap && nneeded <= ncap) && return F
     newm = mneeded <= mcap ? mcap : max(mneeded, 2mcap)
@@ -196,7 +196,7 @@ function _grow!(F::UpdatableQR{T, S, <:DenseQ}, mneeded::Int, nneeded::Int) wher
 end
 
 """
-    ldiv!(y, F::UpdatableQR, b) -> y
+    ldiv!(y, F::ModifiableQR, b) -> y
 
 Overwrite `y` with the least-squares solution `R \\ (Q'b)`. `b` has length `size(F, 1)` and `y`
 length `size(F, 2)`. Allocates nothing.
@@ -205,7 +205,7 @@ Both arguments are indexed from 1. The updating verbs accept offset vectors beca
 their argument into the factorization's own storage; the solve applies `Q'` to `b` in place and
 has nowhere to put an `m`-length copy.
 """
-function LinearAlgebra.ldiv!(y::AbstractVector, F::UpdatableQR, b::AbstractVector)
+function LinearAlgebra.ldiv!(y::AbstractVector, F::ModifiableQR, b::AbstractVector)
     Base.require_one_based_indexing(y, b)
     length(b) == F.m ||
         throw(DimensionMismatch("b has length $(length(b)), factorization is $(F.m)x$(F.n)"))
@@ -217,14 +217,14 @@ function LinearAlgebra.ldiv!(y::AbstractVector, F::UpdatableQR, b::AbstractVecto
 end
 
 """
-    ldiv!(F::UpdatableQR, B) -> B
+    ldiv!(F::ModifiableQR, B) -> B
 
 Overwrite the leading `size(F, 2)` rows of each column of `B` with its least-squares solution,
 matching `ldiv!(::QRCompactWY, ::AbstractVecOrMat)`. The trailing rows are left as they were.
 
 `B` is indexed from 1, as it is in the three-argument method.
 """
-function LinearAlgebra.ldiv!(F::UpdatableQR, B::AbstractVecOrMat)
+function LinearAlgebra.ldiv!(F::ModifiableQR, B::AbstractVecOrMat)
     Base.require_one_based_indexing(B)
     size(B, 1) == F.m ||
         throw(DimensionMismatch("B has $(size(B, 1)) rows, factorization is $(F.m)x$(F.n)"))
@@ -241,7 +241,7 @@ function LinearAlgebra.ldiv!(F::UpdatableQR, B::AbstractVecOrMat)
 end
 
 """
-    \\(F::UpdatableQR, B) -> X
+    \\(F::ModifiableQR, B) -> X
 
 Least-squares solution of `F.Q * F.R * X = B`: `X` has `size(F, 2)` rows, whatever the shape of
 `B`, matching `\\(::QRCompactWY, ::AbstractVecOrMat)`. The element type of the solution is the
@@ -252,7 +252,7 @@ Unlike the two `ldiv!` methods, this does not reuse `F`'s scratch storage, which
 `eltype(F)`: the promoted element type of a wider right-hand side, such as a complex one against
 a real `F`, would not fit it.
 """
-function Base.:\(F::UpdatableQR, B::AbstractVecOrMat)
+function Base.:\(F::ModifiableQR, B::AbstractVecOrMat)
     Base.require_one_based_indexing(B)
     size(B, 1) == F.m ||
         throw(DimensionMismatch("B has $(size(B, 1)) rows, factorization is $(F.m)x$(F.n)"))
@@ -262,9 +262,9 @@ function Base.:\(F::UpdatableQR, B::AbstractVecOrMat)
     return Y
 end
 
-_project(F::UpdatableQR, b::AbstractVector, ::Type{TFB}) where {TFB} =
+_project(F::ModifiableQR, b::AbstractVector, ::Type{TFB}) where {TFB} =
     mul!(similar(b, TFB, Base.OneTo(F.n)), F.Q', b)
-_project(F::UpdatableQR, B::AbstractMatrix, ::Type{TFB}) where {TFB} =
+_project(F::ModifiableQR, B::AbstractMatrix, ::Type{TFB}) where {TFB} =
     mul!(similar(B, TFB, Base.OneTo(F.n), axes(B, 2)), F.Q', B)
 
 # LinearAlgebra reinterprets a real factorization applied to a complex right-hand side through
@@ -274,5 +274,5 @@ _project(F::UpdatableQR, B::AbstractMatrix, ::Type{TFB}) where {TFB} =
 # ambiguous unless something more specific than both is added. The method above already solves
 # a complex right-hand side against a real factorization correctly on its own, so this one only
 # needs to break the tie in its favor.
-Base.:\(F::UpdatableQR{T}, B::VecOrMat{Complex{T}}) where {T <: LinearAlgebra.BlasReal} =
-    invoke(\, Tuple{UpdatableQR, AbstractVecOrMat}, F, B)
+Base.:\(F::ModifiableQR{T}, B::VecOrMat{Complex{T}}) where {T <: LinearAlgebra.BlasReal} =
+    invoke(\, Tuple{ModifiableQR, AbstractVecOrMat}, F, B)

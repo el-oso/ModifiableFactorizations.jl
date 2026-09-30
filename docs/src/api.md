@@ -1,5 +1,5 @@
 # API reference
 
 ```@autodocs
-Modules = [UpdatableFactorizations]
+Modules = [ModifiableFactorizations]
 ```

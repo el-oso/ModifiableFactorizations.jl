@@ -4,11 +4,11 @@
 # StrictMode's allocation and type-stability guards cost real allocation and dynamic dispatch
 # when enabled, which is the state ordinary development and testing run in.
 # bench/LocalPreferences.toml disables them for this environment, so every
-# UpdatableFactorizations cell below measures the bare kernel, matching a shipped build, rather
+# ModifiableFactorizations cell below measures the bare kernel, matching a shipped build, rather
 # than the guards' own reflection cost.
 
 using LinearAlgebra, Random, Chairmarks
-using UpdatableFactorizations
+using ModifiableFactorizations
 import UpdatableCholeskyFactorizations
 import UpdatableQRFactorizations
 import QRupdate
@@ -16,7 +16,7 @@ import QRupdatesFast
 import StrictMode
 
 StrictMode.checks_enabled() && error(
-    "StrictMode checks are enabled in this environment; every UpdatableFactorizations cell " *
+    "StrictMode checks are enabled in this environment; every ModifiableFactorizations cell " *
         "would measure the guards' reflection cost instead of the kernel. Check " *
         "bench/LocalPreferences.toml."
 )
@@ -29,7 +29,7 @@ isdefined(Main, :ROWS) || include(joinpath(@__DIR__, "harness.jl"))
 # scope. Naming the module at every call site keeps it visible which package a verb belongs to,
 # and keeps the file correct if a `using` is ever added: UpdatableCholeskyFactorizations and
 # UpdatableQRFactorizations both export the names UpdatableCholesky and UpdatableQR.
-const UF = UpdatableFactorizations
+const MF = ModifiableFactorizations
 const UCF = UpdatableCholeskyFactorizations
 const UQRF = UpdatableQRFactorizations
 
@@ -38,7 +38,7 @@ spd(n) = (B = randn(n, n); Matrix(Symmetric(B * B' + n * I)))
 function cholesky_cells(ns; samples::Int = 100)
     for n in ns
         A = spd(n)
-        mkF() = UF.UpdatableCholesky(cholesky(Symmetric(A, :L)))
+        mkF() = MF.ModifiableCholesky(cholesky(Symmetric(A, :L)))
         mkC() = cholesky(Symmetric(A, :L))
         mkU() = UCF.updatable_cholesky(A, 2n)
 
@@ -47,11 +47,11 @@ function cholesky_cells(ns; samples::Int = 100)
         target = A + v * v'
         relerr(F) = norm(Matrix(F) - target) / norm(A)
         F = mkF()
-        UF.lowrankupdate!(F, v)
+        MF.lowrankupdate!(F, v)
         record!(;
             family = "cholesky", routine = "lowrankupdate!",
-            variant = "UpdatableFactorizations", eltype = Float64, n,
-            bench = @mutating_bench(mkF, F -> UF.lowrankupdate!(F, v), samples = samples),
+            variant = "ModifiableFactorizations", eltype = Float64, n,
+            bench = @mutating_bench(mkF, F -> MF.lowrankupdate!(F, v), samples = samples),
             relerr = relerr(F),
         )
         C = mkC()
@@ -76,11 +76,11 @@ function cholesky_cells(ns; samples::Int = 100)
         dtarget = A - w * w'
         drelerr(F) = norm(Matrix(F) - dtarget) / norm(A)
         F = mkF()
-        UF.lowrankdowndate!(F, w)
+        MF.lowrankdowndate!(F, w)
         record!(;
             family = "cholesky", routine = "lowrankdowndate!",
-            variant = "UpdatableFactorizations", eltype = Float64, n,
-            bench = @mutating_bench(mkF, F -> UF.lowrankdowndate!(F, w), samples = samples),
+            variant = "ModifiableFactorizations", eltype = Float64, n,
+            bench = @mutating_bench(mkF, F -> MF.lowrankdowndate!(F, w), samples = samples),
             relerr = drelerr(F),
         )
         C = mkC()
@@ -104,11 +104,11 @@ function cholesky_cells(ns; samples::Int = 100)
         keep = [i for i in 1:n if i != 2]
         del = A[keep, keep]
         F = mkF()
-        UF.delete_column!(F, 2)
+        MF.delete_column!(F, 2)
         record!(;
             family = "cholesky", routine = "delete_column!",
-            variant = "UpdatableFactorizations", eltype = Float64, n,
-            bench = @mutating_bench(mkF, F -> UF.delete_column!(F, 2), samples = samples),
+            variant = "ModifiableFactorizations", eltype = Float64, n,
+            bench = @mutating_bench(mkF, F -> MF.delete_column!(F, 2), samples = samples),
             relerr = norm(Matrix(F) - del) / norm(A),
         )
         U = mkU()
@@ -131,14 +131,14 @@ function cholesky_cells(ns; samples::Int = 100)
         Bg = randn(n + 1, n + 1)
         Ag = Matrix(Symmetric(Bg * Bg' + (n + 1) * I))
         x = Ag[:, n + 1]
-        mkFg() = UF.UpdatableCholesky(cholesky(Symmetric(Ag[1:n, 1:n], :L)))
+        mkFg() = MF.ModifiableCholesky(cholesky(Symmetric(Ag[1:n, 1:n], :L)))
         mkUg() = UCF.updatable_cholesky(Ag[1:n, 1:n], 2n + 2)
         F = mkFg()
-        UF.insert_column!(F, n + 1, x)
+        MF.insert_column!(F, n + 1, x)
         record!(;
             family = "cholesky", routine = "append_column!",
-            variant = "UpdatableFactorizations", eltype = Float64, n,
-            bench = @mutating_bench(mkFg, F -> UF.insert_column!(F, n + 1, x), samples = samples),
+            variant = "ModifiableFactorizations", eltype = Float64, n,
+            bench = @mutating_bench(mkFg, F -> MF.insert_column!(F, n + 1, x), samples = samples),
             relerr = norm(Matrix(F) - Ag) / norm(Ag),
         )
         U = mkUg()
@@ -160,11 +160,11 @@ function cholesky_cells(ns; samples::Int = 100)
         Ai = Ag[into2, into2]
         xi = x[[1; n + 1; 2:n]]
         F = mkFg()
-        UF.insert_column!(F, 2, xi)
+        MF.insert_column!(F, 2, xi)
         record!(;
             family = "cholesky", routine = "insert_column!",
-            variant = "UpdatableFactorizations", eltype = Float64, n,
-            bench = @mutating_bench(mkFg, F -> UF.insert_column!(F, 2, xi), samples = samples),
+            variant = "ModifiableFactorizations", eltype = Float64, n,
+            bench = @mutating_bench(mkFg, F -> MF.insert_column!(F, 2, xi), samples = samples),
             relerr = norm(Matrix(F) - Ai) / norm(Ai),
         )
         record!(;
@@ -178,11 +178,11 @@ function cholesky_cells(ns; samples::Int = 100)
         p = [2:n; 1]
         sh = A[p, p]
         F = mkF()
-        UF.shift_columns!(F, 1, n)
+        MF.shift_columns!(F, 1, n)
         record!(;
             family = "cholesky", routine = "shift_columns!",
-            variant = "UpdatableFactorizations", eltype = Float64, n,
-            bench = @mutating_bench(mkF, F -> UF.shift_columns!(F, 1, n), samples = samples),
+            variant = "ModifiableFactorizations", eltype = Float64, n,
+            bench = @mutating_bench(mkF, F -> MF.shift_columns!(F, 1, n), samples = samples),
             relerr = norm(Matrix(F) - sh) / norm(A),
         )
         record!(;
@@ -205,14 +205,14 @@ function lu_cells(ns; samples::Int = 100)
         # Unpivoted. QRupdatesFast.lu1up! overwrites both factors and takes L as m x n and R as
         # n x n, so each sample is handed freshly materialized copies.
         Gn = lu(A, NoPivot())
-        mkFn() = UF.UpdatableLU(lu(A, NoPivot()))
+        mkFn() = MF.ModifiableLU(lu(A, NoPivot()))
         mkQn() = (Matrix(Gn.L), Matrix(Gn.U))
         F = mkFn()
-        UF.lowrankupdate!(F, u, v)
+        MF.lowrankupdate!(F, u, v)
         record!(;
             family = "lu", routine = "lowrankupdate! nopivot",
-            variant = "UpdatableFactorizations", eltype = Float64, n,
-            bench = @mutating_bench(mkFn, F -> UF.lowrankupdate!(F, u, v), samples = samples),
+            variant = "ModifiableFactorizations", eltype = Float64, n,
+            bench = @mutating_bench(mkFn, F -> MF.lowrankupdate!(F, u, v), samples = samples),
             relerr = norm(Matrix(F) - target) / norm(A),
         )
         Ln, Rn = mkQn()
@@ -235,14 +235,14 @@ function lu_cells(ns; samples::Int = 100)
         # Pivoted. lup1up!'s permutation argument is in/out: the identity that holds afterwards
         # uses the vector it returns, in the same convention as LinearAlgebra.lu.
         Gp = lu(A)
-        mkFp() = UF.UpdatableLU(lu(A))
+        mkFp() = MF.ModifiableLU(lu(A))
         mkQp() = (Matrix(Gp.L), Matrix(Gp.U), Int32.(Gp.p))
         F = mkFp()
-        UF.lowrankupdate!(F, u, v)
+        MF.lowrankupdate!(F, u, v)
         record!(;
             family = "lu", routine = "lowrankupdate! pivoted",
-            variant = "UpdatableFactorizations", eltype = Float64, n,
-            bench = @mutating_bench(mkFp, F -> UF.lowrankupdate!(F, u, v), samples = samples),
+            variant = "ModifiableFactorizations", eltype = Float64, n,
+            bench = @mutating_bench(mkFp, F -> MF.lowrankupdate!(F, u, v), samples = samples),
             relerr = norm(Matrix(F) - target) / norm(A),
         )
         Lp, Rp, pp = mkQp()
@@ -268,7 +268,7 @@ end
 
 # Reconstruction residual of a thin QR against the matrix it should factor.
 qrerr(Q, R, A) = norm(Q * R - A) / norm(A)
-qrerr(F::UF.UpdatableQR, A) = norm(Matrix(F) - A) / norm(A)
+qrerr(F::MF.ModifiableQR, A) = norm(Matrix(F) - A) / norm(A)
 
 # QRupdate maintains R alone, from the normal equations, so its residual is measured on R'R.
 rerr(R, A) = norm(R' * R - A' * A) / norm(A' * A)
@@ -281,18 +281,18 @@ function qr_cells(sizes; samples::Int = 100)
         A = randn(m, n)
         Q0 = Matrix(qr(A).Q)
         R0 = Matrix(qr(A).R)
-        mkF() = UF.UpdatableQR(A)
+        mkF() = MF.ModifiableQR(A)
 
         # Rank-1 update.
         u = randn(m)
         v = randn(n)
         target = A + u * v'
         F = mkF()
-        UF.lowrankupdate!(F, u, v)
+        MF.lowrankupdate!(F, u, v)
         record!(;
-            family = "qr", routine = "lowrankupdate!", variant = "UpdatableFactorizations",
+            family = "qr", routine = "lowrankupdate!", variant = "ModifiableFactorizations",
             eltype = Float64, m, n,
-            bench = @mutating_bench(mkF, F -> UF.lowrankupdate!(F, u, v), samples = samples),
+            bench = @mutating_bench(mkF, F -> MF.lowrankupdate!(F, u, v), samples = samples),
             relerr = qrerr(F, target),
         )
         record!(;
@@ -306,11 +306,11 @@ function qr_cells(sizes; samples::Int = 100)
         x = randn(m)
         wide = [A x]
         F = mkF()
-        UF.insert_column!(F, n + 1, x)
+        MF.insert_column!(F, n + 1, x)
         record!(;
-            family = "qr", routine = "insert_column!", variant = "UpdatableFactorizations",
+            family = "qr", routine = "insert_column!", variant = "ModifiableFactorizations",
             eltype = Float64, m, n,
-            bench = @mutating_bench(mkF, F -> UF.insert_column!(F, n + 1, x), samples = samples),
+            bench = @mutating_bench(mkF, F -> MF.insert_column!(F, n + 1, x), samples = samples),
             relerr = qrerr(F, wide),
         )
         mkG() = UQRF.UpdatableGivensQR(A, n + 1)
@@ -339,11 +339,11 @@ function qr_cells(sizes; samples::Int = 100)
         keepc = [j for j in 1:n if j != 2]
         narrow = A[:, keepc]
         F = mkF()
-        UF.delete_column!(F, 2)
+        MF.delete_column!(F, 2)
         record!(;
-            family = "qr", routine = "delete_column!", variant = "UpdatableFactorizations",
+            family = "qr", routine = "delete_column!", variant = "ModifiableFactorizations",
             eltype = Float64, m, n,
-            bench = @mutating_bench(mkF, F -> UF.delete_column!(F, 2), samples = samples),
+            bench = @mutating_bench(mkF, F -> MF.delete_column!(F, 2), samples = samples),
             relerr = qrerr(F, narrow),
         )
         mkG2() = UQRF.UpdatableGivensQR(A, n)
@@ -372,11 +372,11 @@ function qr_cells(sizes; samples::Int = 100)
         pc = [2:n; 1]
         shifted = A[:, pc]
         F = mkF()
-        UF.shift_columns!(F, 1, n)
+        MF.shift_columns!(F, 1, n)
         record!(;
-            family = "qr", routine = "shift_columns!", variant = "UpdatableFactorizations",
+            family = "qr", routine = "shift_columns!", variant = "ModifiableFactorizations",
             eltype = Float64, m, n,
-            bench = @mutating_bench(mkF, F -> UF.shift_columns!(F, 1, n), samples = samples),
+            bench = @mutating_bench(mkF, F -> MF.shift_columns!(F, 1, n), samples = samples),
             relerr = qrerr(F, shifted),
         )
         mkQR() = (copy(Q0), copy(R0))
@@ -401,11 +401,11 @@ function qr_cells(sizes; samples::Int = 100)
         y = randn(n)
         tall = [A; transpose(y)]
         F = mkF()
-        UF.insert_row!(F, m + 1, y)
+        MF.insert_row!(F, m + 1, y)
         record!(;
-            family = "qr", routine = "insert_row!", variant = "UpdatableFactorizations",
+            family = "qr", routine = "insert_row!", variant = "ModifiableFactorizations",
             eltype = Float64, m, n,
-            bench = @mutating_bench(mkF, F -> UF.insert_row!(F, m + 1, y), samples = samples),
+            bench = @mutating_bench(mkF, F -> MF.insert_row!(F, m + 1, y), samples = samples),
             relerr = qrerr(F, tall),
         )
         record!(;
@@ -424,11 +424,11 @@ function qr_cells(sizes; samples::Int = 100)
         keepr = [i for i in 1:m if i != 2]
         short = A[keepr, :]
         F = mkF()
-        UF.delete_row!(F, 2)
+        MF.delete_row!(F, 2)
         record!(;
-            family = "qr", routine = "delete_row!", variant = "UpdatableFactorizations",
+            family = "qr", routine = "delete_row!", variant = "ModifiableFactorizations",
             eltype = Float64, m, n,
-            bench = @mutating_bench(mkF, F -> UF.delete_row!(F, 2), samples = samples),
+            bench = @mutating_bench(mkF, F -> MF.delete_row!(F, 2), samples = samples),
             relerr = qrerr(F, short),
         )
         record!(;

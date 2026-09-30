@@ -1,13 +1,13 @@
 @testitem "DenseQ implements the AbstractQRep contract" begin
     using LinearAlgebra
-    using UpdatableFactorizations: AbstractQRep, DenseQ, materialize, TypeContracts
-    using UpdatableFactorizations.TypeContracts: @test_implements
+    using ModifiableFactorizations: AbstractQRep, DenseQ, materialize, TypeContracts
+    using ModifiableFactorizations.TypeContracts: @test_implements
     @test_implements DenseQ AbstractQRep
 end
 
 @testitem "DenseQ presents its active block and keeps the rest zero" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: DenseQ, materialize, _active, _spare, capacity
+    using ModifiableFactorizations: DenseQ, materialize, _active, _spare, capacity
 
     Random.seed!(20260908)
     m, n = 6, 3
@@ -29,7 +29,7 @@ end
 
 @testitem "DenseQ applies rotations to the augmented factor" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: DenseQ, _active, _augmented
+    using ModifiableFactorizations: DenseQ, _active, _augmented
 
     Random.seed!(20260908)
     for T in (Float64, ComplexF64)
@@ -60,7 +60,7 @@ end
 
 @testitem "DenseQ structural edits leave storage outside the active block zero" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: DenseQ, _insertrow!, _deleterow!, _dropcolumn!, _spare
+    using ModifiableFactorizations: DenseQ, _insertrow!, _deleterow!, _dropcolumn!, _spare
 
     Random.seed!(20260908)
     m, n = 5, 3

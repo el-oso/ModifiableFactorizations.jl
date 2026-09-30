@@ -6,7 +6,7 @@
         B = randn(T, n, n)
         A = Matrix(Hermitian(B * B' + n * I))
         for j in 1:n
-            F = UpdatableCholesky(cholesky(Hermitian(A, uplo)))
+            F = ModifiableCholesky(cholesky(Hermitian(A, uplo)))
             delete_column!(F, j)
             keep = [k for k in 1:n if k != j]
             L = F.L
@@ -20,7 +20,7 @@ end
     using LinearAlgebra, Random
     Random.seed!(20260908)
     B = randn(5, 5)
-    F = UpdatableCholesky(cholesky(Symmetric(Matrix(Symmetric(B * B' + 5I)), :L)))
+    F = ModifiableCholesky(cholesky(Symmetric(Matrix(Symmetric(B * B' + 5I)), :L)))
     @test_throws BoundsError delete_column!(F, 6)
     @test_throws BoundsError delete_column!(F, 0)
 end
@@ -32,8 +32,8 @@ end
         n = 6
         B = randn(T, n + 1, n + 1)
         A = Matrix(Hermitian(B * B' + (n + 1) * I))
-        F = UpdatableCholesky(cholesky(Hermitian(A[1:n, 1:n], uplo)))
-        UpdatableFactorizations._append!(F, A[:, n + 1])
+        F = ModifiableCholesky(cholesky(Hermitian(A[1:n, 1:n], uplo)))
+        ModifiableFactorizations._append!(F, A[:, n + 1])
         L = F.L
         @test size(F) == (n + 1, n + 1)
         @test norm(L * L' - A) / norm(A) < 1.0e-13
@@ -46,8 +46,8 @@ end
     n = 4
     B = randn(n + 1, n + 1)
     A = Matrix(Symmetric(B * B' + (n + 1) * I))
-    F = UpdatableCholesky(cholesky(Symmetric(A[1:n, 1:n], :L)); capacity = n)
-    UpdatableFactorizations._append!(F, A[:, n + 1])
+    F = ModifiableCholesky(cholesky(Symmetric(A[1:n, 1:n], :L)); capacity = n)
+    ModifiableFactorizations._append!(F, A[:, n + 1])
     L = F.L
     @test norm(L * L' - A) / norm(A) < 1.0e-13
 end
@@ -60,9 +60,9 @@ end
         B = randn(T, n, n)
         A = Matrix(Hermitian(B * B' + n * I))
         for i in 1:n, j in 1:n
-            F = UpdatableCholesky(cholesky(Hermitian(A, uplo)))
+            F = ModifiableCholesky(cholesky(Hermitian(A, uplo)))
             shift_columns!(F, i, j)
-            p = UpdatableFactorizations._cyclicperm!(zeros(Int, n), i, j)
+            p = ModifiableFactorizations._cyclicperm!(zeros(Int, n), i, j)
             L = F.L
             @test norm(L * L' - A[p, p]) / norm(A) < 1.0e-12
             @test all(x -> abs(imag(x)) < 1.0e-12 && real(x) > 0, diag(L))
@@ -80,7 +80,7 @@ end
         A = Matrix(Hermitian(B * B' + (n + 1) * I))
         for j in 1:(n + 1)
             keep = [k for k in 1:(n + 1) if k != j]
-            F = UpdatableCholesky(cholesky(Hermitian(A[keep, keep], uplo)))
+            F = ModifiableCholesky(cholesky(Hermitian(A[keep, keep], uplo)))
             insert_column!(F, j, A[:, j])
             L = F.L
             @test size(F) == (n + 1, n + 1)

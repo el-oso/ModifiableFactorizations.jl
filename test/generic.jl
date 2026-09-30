@@ -28,22 +28,22 @@
         # from this test's own data (worst case over the six checks below is ~2e-7).
         tol = T === Float32 ? 1.0e-5 : 100 * sqrt(eps(real(T)))
 
-        F = UpdatableCholesky(cholesky(Symmetric(A, :L)))
+        F = ModifiableCholesky(cholesky(Symmetric(A, :L)))
         lowrankupdate!(F, v)
         @test norm(Matrix(F) - (A + v * v')) / norm(A) < tol
 
-        G = UpdatableCholesky(cholesky(Symmetric(A + v * v', :L)))
+        G = ModifiableCholesky(cholesky(Symmetric(A + v * v', :L)))
         lowrankdowndate!(G, v)
         @test norm(Matrix(G) - A) / norm(A) < tol
 
         j = 3
-        H = UpdatableCholesky(cholesky(Symmetric(A, :L)))
+        H = ModifiableCholesky(cholesky(Symmetric(A, :L)))
         delete_column!(H, j)
         keep = setdiff(1:n, j)
         @test norm(Matrix(H) - A[keep, keep]) / norm(A) < tol
 
         i, k = 1, 4
-        S = UpdatableCholesky(cholesky(Symmetric(A, :L)))
+        S = ModifiableCholesky(cholesky(Symmetric(A, :L)))
         shift_columns!(S, i, k)
         perm = collect(1:n)
         deleteat!(perm, i)
@@ -53,14 +53,14 @@
         Afull = T.(Afull64)
         jc = 2
         keepc = setdiff(1:(n + 1), jc)
-        Isub = UpdatableCholesky(cholesky(Symmetric(Afull[keepc, keepc], :L)))
+        Isub = ModifiableCholesky(cholesky(Symmetric(Afull[keepc, keepc], :L)))
         insert_column!(Isub, jc, Afull[:, jc])
         @test norm(Matrix(Isub) - Afull) / norm(Afull) < tol
 
         Alu = T.(Alu64)
         u = T.(u64)
         w = T.(w64)
-        L = UpdatableLU(lu(Alu, RowMaximum()))
+        L = ModifiableLU(lu(Alu, RowMaximum()))
         lowrankupdate!(L, u, w)
         @test norm(Matrix(L) - (Alu + u * w')) / norm(Alu) < tol
 
@@ -85,31 +85,31 @@
             dirw = randn(n)
 
             Az = T.(A64)
-            Fp = UpdatableCholesky(cholesky(Symmetric(Az, :L)))
+            Fp = ModifiableCholesky(cholesky(Symmetric(Az, :L)))
             lowrankupdate!(Fp, seed(v64, dirv))
             @test haspartial(Matrix(Fp))
 
             Av = seed(A64, dirA)
             v0 = T.(v64)
-            Gp = UpdatableCholesky(cholesky(Symmetric(Av + v0 * v0', :L)))
+            Gp = ModifiableCholesky(cholesky(Symmetric(Av + v0 * v0', :L)))
             lowrankdowndate!(Gp, v0)
             @test haspartial(Matrix(Gp))
 
-            Hp = UpdatableCholesky(cholesky(Symmetric(Av, :L)))
+            Hp = ModifiableCholesky(cholesky(Symmetric(Av, :L)))
             delete_column!(Hp, j)
             @test haspartial(Matrix(Hp))
 
-            Sp = UpdatableCholesky(cholesky(Symmetric(Av, :L)))
+            Sp = ModifiableCholesky(cholesky(Symmetric(Av, :L)))
             shift_columns!(Sp, i, k)
             @test haspartial(Matrix(Sp))
 
             Afullz = T.(Afull64)
-            Isubp = UpdatableCholesky(cholesky(Symmetric(Afullz[keepc, keepc], :L)))
+            Isubp = ModifiableCholesky(cholesky(Symmetric(Afullz[keepc, keepc], :L)))
             insert_column!(Isubp, jc, seed(Afull64[:, jc], dirx))
             @test haspartial(Matrix(Isubp))
 
             Aluz = T.(Alu64)
-            Lp = UpdatableLU(lu(Aluz, RowMaximum()))
+            Lp = ModifiableLU(lu(Aluz, RowMaximum()))
             lowrankupdate!(Lp, seed(u64, diru), seed(w64, dirw))
             @test haspartial(Matrix(Lp))
         end
@@ -125,26 +125,26 @@ end
     A = Matrix(Symmetric(B * B' + n * I))
     v = randn(n)
 
-    F = UpdatableCholesky(cholesky(Symmetric(A, :L)))
+    F = ModifiableCholesky(cholesky(Symmetric(A, :L)))
     lowrankupdate!(F, v)
 
-    G = UpdatableCholesky(cholesky(Symmetric(A, :L)))
+    G = ModifiableCholesky(cholesky(Symmetric(A, :L)))
     lowrankupdate!(G, OffsetVector(v, 0:(n - 1)))
     @test Matrix(F) ≈ Matrix(G)
 
-    H = UpdatableCholesky(cholesky(Symmetric(A, :L)))
+    H = ModifiableCholesky(cholesky(Symmetric(A, :L)))
     lowrankupdate!(H, view(vcat(v, randn(3)), 1:n))
     @test Matrix(F) ≈ Matrix(H)
 
     Ad = A + v * v'
-    Fd = UpdatableCholesky(cholesky(Symmetric(Ad, :L)))
+    Fd = ModifiableCholesky(cholesky(Symmetric(Ad, :L)))
     lowrankdowndate!(Fd, v)
 
-    Gd = UpdatableCholesky(cholesky(Symmetric(Ad, :L)))
+    Gd = ModifiableCholesky(cholesky(Symmetric(Ad, :L)))
     lowrankdowndate!(Gd, OffsetVector(v, -2:(n - 3)))
     @test Matrix(Fd) ≈ Matrix(Gd)
 
-    Hd = UpdatableCholesky(cholesky(Symmetric(Ad, :L)))
+    Hd = ModifiableCholesky(cholesky(Symmetric(Ad, :L)))
     lowrankdowndate!(Hd, view(vcat(v, randn(2)), 1:n))
     @test Matrix(Fd) ≈ Matrix(Hd)
 
@@ -155,28 +155,28 @@ end
     Asub = Afull[keepc, keepc]
     xcol = Afull[:, jc]
 
-    Fi = UpdatableCholesky(cholesky(Symmetric(Asub, :L)))
+    Fi = ModifiableCholesky(cholesky(Symmetric(Asub, :L)))
     insert_column!(Fi, jc, xcol)
 
-    Gi = UpdatableCholesky(cholesky(Symmetric(Asub, :L)))
+    Gi = ModifiableCholesky(cholesky(Symmetric(Asub, :L)))
     insert_column!(Gi, jc, OffsetVector(xcol, 0:n))
     @test Matrix(Fi) ≈ Matrix(Gi)
 
-    Hi = UpdatableCholesky(cholesky(Symmetric(Asub, :L)))
+    Hi = ModifiableCholesky(cholesky(Symmetric(Asub, :L)))
     insert_column!(Hi, jc, view(vcat(xcol, randn(3)), 1:(n + 1)))
     @test Matrix(Fi) ≈ Matrix(Hi)
 
     Alu = randn(n, n)
     u = randn(n)
     w = randn(n)
-    L1 = UpdatableLU(lu(Alu, RowMaximum()))
+    L1 = ModifiableLU(lu(Alu, RowMaximum()))
     lowrankupdate!(L1, u, w)
 
-    L2 = UpdatableLU(lu(Alu, RowMaximum()))
+    L2 = ModifiableLU(lu(Alu, RowMaximum()))
     lowrankupdate!(L2, OffsetVector(u, 0:(n - 1)), OffsetVector(w, -1:(n - 2)))
     @test Matrix(L1) ≈ Matrix(L2)
 
-    L3 = UpdatableLU(lu(Alu, RowMaximum()))
+    L3 = ModifiableLU(lu(Alu, RowMaximum()))
     lowrankupdate!(L3, view(vcat(u, randn(2)), 1:n), view(vcat(w, randn(2)), 1:n))
     @test Matrix(L1) ≈ Matrix(L3)
 end
@@ -209,27 +209,27 @@ end
         # this test's own data (worst case over the six checks below is ~2.7e-7).
         tol = T === Float32 ? 1.0e-5 : 100 * sqrt(eps(real(T)))
 
-        F = UpdatableQR(A)
+        F = ModifiableQR(A)
         lowrankupdate!(F, u, v)
         @test norm(Matrix(F) - (A + u * v')) / norm(A) < tol
 
-        G = UpdatableQR(A)
+        G = ModifiableQR(A)
         insert_column!(G, 2, x)
         @test norm(Matrix(G) - hcat(A[:, 1], x, A[:, 2:n])) / norm(A) < tol
 
-        H = UpdatableQR(A)
+        H = ModifiableQR(A)
         delete_column!(H, 2)
         @test norm(Matrix(H) - A[:, setdiff(1:n, 2)]) / norm(A) < tol
 
-        Sh = UpdatableQR(A)
+        Sh = ModifiableQR(A)
         shift_columns!(Sh, 1, 3)
         @test norm(Matrix(Sh) - A[:, [2, 3, 1, 4]]) / norm(A) < tol
 
-        Ir = UpdatableQR(A)
+        Ir = ModifiableQR(A)
         insert_row!(Ir, 2, row)
         @test norm(Matrix(Ir) - vcat(A[1:1, :], permutedims(row), A[2:m, :])) / norm(A) < tol
 
-        Dr = UpdatableQR(A)
+        Dr = ModifiableQR(A)
         delete_row!(Dr, 2)
         @test norm(Matrix(Dr) - A[setdiff(1:m, 2), :]) / norm(A) < tol
         # Triangularity, asserted on the stored block: `F.R` wraps it in `UpperTriangular` and
@@ -256,27 +256,27 @@ end
             )
             Aseed = seed(A64, randn(m, n))
 
-            Fp = UpdatableQR(T.(A64))
+            Fp = ModifiableQR(T.(A64))
             lowrankupdate!(Fp, seed(u64, randn(m)), v)
             @test haspartial(Matrix(Fp))
 
-            Gp = UpdatableQR(T.(A64))
+            Gp = ModifiableQR(T.(A64))
             insert_column!(Gp, 2, seed(x64, randn(m)))
             @test haspartial(Matrix(Gp))
 
-            Hp = UpdatableQR(Aseed)
+            Hp = ModifiableQR(Aseed)
             delete_column!(Hp, 2)
             @test haspartial(Matrix(Hp))
 
-            Sp = UpdatableQR(Aseed)
+            Sp = ModifiableQR(Aseed)
             shift_columns!(Sp, 1, 3)
             @test haspartial(Matrix(Sp))
 
-            Ip = UpdatableQR(T.(A64))
+            Ip = ModifiableQR(T.(A64))
             insert_row!(Ip, 2, seed(row64, randn(n)))
             @test haspartial(Matrix(Ip))
 
-            Dp = UpdatableQR(Aseed)
+            Dp = ModifiableQR(Aseed)
             delete_row!(Dp, 2)
             @test haspartial(Matrix(Dp))
         end
@@ -295,32 +295,32 @@ end
     row = randn(n)
     uorig, vorig, xorig, roworig = copy(u), copy(v), copy(x), copy(row)
 
-    F = UpdatableQR(A)
+    F = ModifiableQR(A)
     lowrankupdate!(F, u, v)
-    G = UpdatableQR(A)
+    G = ModifiableQR(A)
     # Different offsets on the two vectors: a shared offset lets a kernel that reuses one
     # origin variable for both of them pass.
     lowrankupdate!(G, OffsetVector(u, 0:(m - 1)), OffsetVector(v, -1:(n - 2)))
     @test Matrix(F) ≈ Matrix(G)
-    H = UpdatableQR(A)
+    H = ModifiableQR(A)
     lowrankupdate!(H, view(vcat(u, randn(3)), 1:m), view(vcat(v, randn(3)), 1:n))
     @test Matrix(F) ≈ Matrix(H)
 
-    Fi = UpdatableQR(A)
+    Fi = ModifiableQR(A)
     insert_column!(Fi, 2, x)
-    Gi = UpdatableQR(A)
+    Gi = ModifiableQR(A)
     insert_column!(Gi, 2, OffsetVector(x, -2:(m - 3)))
     @test Matrix(Fi) ≈ Matrix(Gi)
-    Hi = UpdatableQR(A)
+    Hi = ModifiableQR(A)
     insert_column!(Hi, 2, view(vcat(x, randn(3)), 1:m))
     @test Matrix(Fi) ≈ Matrix(Hi)
 
-    Fr = UpdatableQR(A)
+    Fr = ModifiableQR(A)
     insert_row!(Fr, 3, row)
-    Gr = UpdatableQR(A)
+    Gr = ModifiableQR(A)
     insert_row!(Gr, 3, OffsetVector(row, -1:(n - 2)))
     @test Matrix(Fr) ≈ Matrix(Gr)
-    Hr = UpdatableQR(A)
+    Hr = ModifiableQR(A)
     insert_row!(Hr, 3, view(vcat(row, randn(2)), 1:n))
     @test Matrix(Fr) ≈ Matrix(Hr)
 

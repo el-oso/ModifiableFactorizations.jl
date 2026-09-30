@@ -1,4 +1,4 @@
-@invariants UpdatableCholesky begin
+@invariants ModifiableCholesky begin
     "size is within capacity" => F -> 0 <= F.n <= size(F.factors, 1)
     "workspaces cover the active block" =>
         F -> length(F.work) >= F.n && length(F.cosines) >= F.n &&
@@ -12,9 +12,9 @@
         F -> all(i -> isreal(F.factors[i, i]) && real(F.factors[i, i]) > 0, 1:F.n)
 end
 
-# UpdatableLU overrides getproperty for :L and :U, so these predicates read the underlying
+# ModifiableLU overrides getproperty for :L and :U, so these predicates read the underlying
 # fields with getfield to avoid reassembling those matrices on every check.
-@invariants UpdatableLU begin
+@invariants ModifiableLU begin
     "factors agree in size" =>
         F -> length(getfield(F, :d)) == size(getfield(F, :Lf), 1) == size(getfield(F, :Ut), 1)
     # p is a dense 1-based LAPACK pivot vector, so comparing against the literal range 1:n
@@ -28,7 +28,7 @@ end
         F -> getfield(F, :Ut) == UnitLowerTriangular(getfield(F, :Ut))
 end
 
-@invariants UpdatableQR begin
+@invariants ModifiableQR begin
     # The body is parenthesized: an unparenthesized `;` splits the clause into two block
     # statements and the macro rejects the second as a spec that is not a pair.
     "size is within capacity" =>
@@ -53,7 +53,7 @@ end
         F -> (Q = F.Q; norm(Q' * Q - I) <= sqrt(eps(real(eltype(Q)))) * max(F.n, 1))
 end
 
-@strict_contract AbstractUpdatableCholesky "the verb surface an updatable Cholesky factorization exposes" begin
+@strict_contract AbstractModifiableCholesky "the verb surface an updatable Cholesky factorization exposes" begin
     lowrankupdate!(::Self, v::AbstractVector)::Self => "replace A with A + v*v'"
     lowrankdowndate!(::Self, v::AbstractVector)::Self => "replace A with A - v*v'"
     insert_column!(::Self, j::Integer, x::AbstractVector)::Self => "insert row and column j"
@@ -62,13 +62,13 @@ end
     size(::Self)::Tuple{Int, Int} => "current size"
 end
 
-@strict_contract AbstractUpdatableLU "the verb surface an updatable LU factorization exposes" begin
+@strict_contract AbstractModifiableLU "the verb surface an updatable LU factorization exposes" begin
     lowrankupdate!(::Self, u::AbstractVector, v::AbstractVector)::Self =>
         "replace A with A + u*v'"
     size(::Self)::Tuple{Int, Int} => "current size"
 end
 
-@strict_contract AbstractUpdatableQR "the verb surface an updatable QR factorization exposes" begin
+@strict_contract AbstractModifiableQR "the verb surface an updatable QR factorization exposes" begin
     lowrankupdate!(::Self, u::AbstractVector, v::AbstractVector)::Self =>
         "replace A with A + u*v'"
     insert_column!(::Self, j::Integer, x::AbstractVector)::Self => "insert column j"

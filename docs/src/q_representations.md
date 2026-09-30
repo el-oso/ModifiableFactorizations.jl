@@ -1,6 +1,6 @@
 # Q representations
 
-`UpdatableQR` does not store its orthonormal factor directly. It holds an `AbstractQRep`, which
+`ModifiableQR` does not store its orthonormal factor directly. It holds an `AbstractQRep`, which
 answers five operations: its shape, writing itself densely into a matrix, producing an explicitly
 stored equivalent, and applying a Givens rotation on the left or on the right. A thin factor
 cannot subtype `LinearAlgebra.AbstractQ`, whose interface is the implicit square factor —
@@ -15,6 +15,6 @@ in. `materialize` returns it unchanged.
 `F.Q` is a view of that block. It changes when a verb changes the factorization, and writing
 through it changes the factorization.
 
-The docstrings for [`AbstractQRep`](@ref UpdatableFactorizations.AbstractQRep),
-[`DenseQ`](@ref UpdatableFactorizations.DenseQ) and
-[`materialize`](@ref UpdatableFactorizations.materialize) are on the API page.
+The docstrings for [`AbstractQRep`](@ref ModifiableFactorizations.AbstractQRep),
+[`DenseQ`](@ref ModifiableFactorizations.DenseQ) and
+[`materialize`](@ref ModifiableFactorizations.materialize) are on the API page.

@@ -1,5 +1,5 @@
 """
-    lowrankupdate!(F::UpdatableCholesky, v) -> F
+    lowrankupdate!(F::ModifiableCholesky, v) -> F
 
 Replace the factorization of `A` with that of `A + v*v'` in `O(n^2)` operations. `v` is not
 modified. Extends `LinearAlgebra.lowrankupdate!`.
@@ -7,7 +7,7 @@ modified. Extends `LinearAlgebra.lowrankupdate!`.
 Gill, Golub, Murray and Saunders, *Methods for modifying matrix factorizations*,
 Mathematics of Computation 28 (1974), 505-535.
 """
-function LinearAlgebra.lowrankupdate!(F::UpdatableCholesky, v::AbstractVector)
+function LinearAlgebra.lowrankupdate!(F::ModifiableCholesky, v::AbstractVector)
     length(v) == F.n ||
         throw(DimensionMismatch("v has length $(length(v)), factorization is $(F.n)"))
     w = view(F.work, 1:F.n)
@@ -36,7 +36,7 @@ function _ch1up!(L, w)
 end
 
 """
-    lowrankdowndate!(F::UpdatableCholesky, v) -> F
+    lowrankdowndate!(F::ModifiableCholesky, v) -> F
 
 Replace the factorization of `A` with that of `A - v*v'` in `O(n^2)` operations. `v` is not
 modified. Throws `PosDefException` when the result would not be positive definite, before `F`
@@ -49,7 +49,7 @@ Cholesky factorization*, SIAM Journal on Scientific and Statistical Computing 8 
 210-221, show both this form and their own mixed hyperbolic form are forward-stable; only the
 direct hyperbolic form is not.
 """
-function LinearAlgebra.lowrankdowndate!(F::UpdatableCholesky, v::AbstractVector)
+function LinearAlgebra.lowrankdowndate!(F::ModifiableCholesky, v::AbstractVector)
     length(v) == F.n ||
         throw(DimensionMismatch("v has length $(length(v)), factorization is $(F.n)"))
     w = view(F.work, 1:F.n)

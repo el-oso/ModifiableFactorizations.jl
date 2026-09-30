@@ -6,7 +6,7 @@
         C0 = Matrix(Hermitian(randn(T, 9, 9)))
         want = -A * A' + C0
         C = copy(C0)
-        UpdatableFactorizations.default_rankk!(C, A, -one(T), one(T); uplo = 'L')
+        ModifiableFactorizations.default_rankk!(C, A, -one(T), one(T); uplo = 'L')
         # The BLAS path writes the lower triangle only, so only that triangle is compared.
         @test norm(tril(C) - tril(want)) / norm(want) < 100 * eps(real(T))
     end
@@ -18,7 +18,7 @@ end
     A = randn(9, 4)
     C = zeros(9, 9)
     C[1, 9] = 17.0
-    UpdatableFactorizations.default_rankk!(C, A, -1.0, 1.0; uplo = 'L')
+    ModifiableFactorizations.default_rankk!(C, A, -1.0, 1.0; uplo = 'L')
     @test C[1, 9] == 17.0
 end
 
@@ -29,7 +29,7 @@ end
     C0 = Matrix(Hermitian(randn(BigFloat, 9, 9)))
     want = -A * A' + C0
     C = copy(C0)
-    UpdatableFactorizations.default_rankk!(C, A, -one(BigFloat), one(BigFloat); uplo = 'L')
+    ModifiableFactorizations.default_rankk!(C, A, -one(BigFloat), one(BigFloat); uplo = 'L')
     # No symmetric rank-k kernel exists for BigFloat, so the fallback forms the full product:
     # the upper triangle equals `want` too, not just the lower triangle named by `uplo`.
     @test norm(triu(C) - triu(want)) / norm(want) < 100 * eps(BigFloat)
@@ -52,10 +52,10 @@ end
     C0 = Matrix(Hermitian(randn(9, 9)))
 
     C_blas = copy(C0)
-    UpdatableFactorizations.default_rankk!(C_blas, A, -1.0, 1.0; uplo = 'L')
+    ModifiableFactorizations.default_rankk!(C_blas, A, -1.0, 1.0; uplo = 'L')
 
     C_generic = copy(C0)
-    UpdatableFactorizations.default_rankk!(C_generic, NoStride(A), -1.0, 1.0; uplo = 'L')
+    ModifiableFactorizations.default_rankk!(C_generic, NoStride(A), -1.0, 1.0; uplo = 'L')
 
     @test norm(tril(C_blas) - tril(C_generic)) / norm(tril(C_blas)) < 100 * eps()
 end
@@ -65,7 +65,7 @@ end
     Random.seed!(20260908)
     A = randn(ComplexF64, 9, 4)
     C = Matrix(Hermitian(randn(ComplexF64, 9, 9)))
-    @test_throws InexactError UpdatableFactorizations.default_rankk!(C, A, 2.0 + 0.7im, 1.0)
+    @test_throws InexactError ModifiableFactorizations.default_rankk!(C, A, 2.0 + 0.7im, 1.0)
 end
 
 @testitem "cholesky_crout factors" begin
@@ -87,7 +87,7 @@ end
         @test norm(L * L' - A) / norm(A) < 1.0e-13
         @test all(x -> abs(imag(x)) < 1.0e-12 && real(x) > 0, diag(L))
         @test size(F) == (n, n)
-        @test UpdatableFactorizations.capacity(F) == 2n
+        @test ModifiableFactorizations.capacity(F) == 2n
         @test norm(A * (F \ ones(T, n)) - ones(T, n)) < 1.0e-11
     end
 end
@@ -99,7 +99,7 @@ end
     B = randn(n, n)
     A = Matrix(Symmetric(B * B' + n * I))
     F = cholesky_crout(A; s = 2, capacity = 20)
-    @test UpdatableFactorizations.capacity(F) == 20
+    @test ModifiableFactorizations.capacity(F) == 20
     v = randn(n)
     lowrankupdate!(F, v)
     @test norm(Matrix(F) - (A + v * v')) / norm(A) < 1.0e-13
@@ -160,7 +160,7 @@ end
     calls = Ref(0)
     function counting_rankk!(C, block, alpha, beta; uplo::Char = 'L')
         calls[] += 1
-        return UpdatableFactorizations.default_rankk!(C, block, alpha, beta; uplo)
+        return ModifiableFactorizations.default_rankk!(C, block, alpha, beta; uplo)
     end
     F = cholesky_crout(A; s = 3, rankk! = counting_rankk!)
     # s = 3 on n = 10 flushes after columns 3, 6 and 9 (c = z + s at c = 4, 7, 10).
@@ -336,7 +336,7 @@ end
 
 @testitem "lu_crout with partial pivoting supports lowrankupdate!" begin
     using LinearAlgebra, Random, Test
-    using UpdatableFactorizations: TypeContracts
+    using ModifiableFactorizations: TypeContracts
     using .TypeContracts: behavior_passes
     Random.seed!(20260908)
     n = 8
@@ -349,17 +349,17 @@ end
     @test issuccess(F)
     @test norm(Matrix(F) - (A + u * v')) / norm(A) < 1.0e-9
     @test norm((A + u * v') * (F \ ones(n)) - ones(n)) < 1.0e-7
-    @test behavior_passes(UpdatableLU, [F])
+    @test behavior_passes(ModifiableLU, [F])
 end
 
 @testitem "qr_bcgs factors a rectangular matrix" begin
     using LinearAlgebra, Random
-    using UpdatableFactorizations: capacity
+    using ModifiableFactorizations: capacity
     Random.seed!(20260908)
     for T in (Float64, ComplexF64), (m, n) in ((12, 7), (9, 9)), s in (1, 3, 64)
         A = randn(T, m, n)
         F = qr_bcgs(A; s)
-        @test F isa UpdatableQR{T}
+        @test F isa ModifiableQR{T}
         @test size(F) == (m, n)
         @test size(F.Q) == (m, n)
         @test norm(Matrix(F) - A) / norm(A) < 1.0e-12
@@ -369,7 +369,7 @@ end
         Rs = getfield(F, :factors)
         @test all(iszero, [Rs[i, j] for j in 1:n for i in (j + 1):n])
     end
-    # The factorization is updatable on return, since qr_bcgs returns an UpdatableQR.
+    # The factorization is updatable on return, since qr_bcgs returns an ModifiableQR.
     A = randn(12, 7)
     F = qr_bcgs(A; s = 4)
     x = randn(12)
@@ -433,7 +433,7 @@ end
 
 @testitem "qr_bcgs returns a factorization on which the updating verbs work" begin
     using LinearAlgebra, Random, Test
-    using UpdatableFactorizations: TypeContracts
+    using ModifiableFactorizations: TypeContracts
     using .TypeContracts: behavior_passes
     Random.seed!(20260908)
     m, n = 10, 6
@@ -447,7 +447,7 @@ end
     @test size(F) == (m, n - 1)
     @test norm(F.Q' * F.Q - I) < 1.0e-10
     @test iszero(norm(tril(getfield(F, :factors)[1:(n - 1), 1:(n - 1)], -1)))
-    @test behavior_passes(UpdatableQR, [F])
+    @test behavior_passes(ModifiableQR, [F])
 end
 
 @testitem "qr_bcgs conditioning sweep: reorth = true stays orthogonal, false does not" begin
@@ -485,7 +485,7 @@ end
 
     calls = Ref(0)
     counting_rankk!(C, X, alpha, beta; uplo = 'L') =
-        (calls[] += 1; UpdatableFactorizations.default_rankk!(C, X, alpha, beta; uplo))
+        (calls[] += 1; ModifiableFactorizations.default_rankk!(C, X, alpha, beta; uplo))
     F = cholesky_crout(A; s = 4, rankk! = counting_rankk!)
     @test calls[] == 2                       # flushes at columns 5 and 9
     @test norm(Matrix(F) - A) / norm(A) < 1.0e-13
@@ -552,7 +552,7 @@ end
     A = Matrix(Hermitian(B * B' + n * I))
     calls = Ref(0)
     counting_rankk!(C, X, alpha, beta; uplo = 'L') =
-        (calls[] += 1; UpdatableFactorizations.default_rankk!(C, X, alpha, beta; uplo))
+        (calls[] += 1; ModifiableFactorizations.default_rankk!(C, X, alpha, beta; uplo))
     # A substitute that only forwards to the default must reproduce it exactly, not merely to
     # within a tolerance, because it runs the identical arithmetic in the identical order.
     F = cholesky_crout(A; s = 4, rankk! = counting_rankk!)
@@ -586,7 +586,7 @@ end
     # Doubling the correction term is wrong at every flush, and s = 4 on n = 12 flushes twice
     # (at columns 5 and 9), so this configuration reaches the corrupted code path.
     wrong_rankk!(C, X, alpha, beta; uplo = 'L') =
-        UpdatableFactorizations.default_rankk!(C, X, 2 * alpha, beta; uplo)
+        ModifiableFactorizations.default_rankk!(C, X, 2 * alpha, beta; uplo)
     Fw = cholesky_crout(A; s = 4, rankk! = wrong_rankk!)
     @test norm(Matrix(Fw) - A) / norm(A) > 1.0e-3
 
@@ -675,7 +675,7 @@ end
 
 @testitem "cholesky_crout! reused at a smaller size preserves the type invariants" begin
     using LinearAlgebra, Random, Test
-    using UpdatableFactorizations: TypeContracts
+    using ModifiableFactorizations: TypeContracts
     using .TypeContracts: behavior_passes
     Random.seed!(20260908)
     n1, n2 = 10, 4
@@ -685,7 +685,7 @@ end
     A2 = Matrix(Symmetric(B2 * B2' + n2 * I))
     cholesky_crout!(F, copy(A2); s = 2)
     @test size(F) == (n2, n2)
-    @test behavior_passes(UpdatableCholesky, [F])
+    @test behavior_passes(ModifiableCholesky, [F])
     @test norm(Matrix(F) - A2) / norm(A2) < 1.0e-13
 end
 
@@ -751,7 +751,7 @@ end
 
 @testitem "lu_crout! preserves the type invariants after an in-place refactorization" begin
     using LinearAlgebra, Random, Test
-    using UpdatableFactorizations: TypeContracts
+    using ModifiableFactorizations: TypeContracts
     using .TypeContracts: behavior_passes
     Random.seed!(20260908)
     n = 8
@@ -759,7 +759,7 @@ end
     F = lu_crout(A; s = 3)
     A2 = randn(n, n)
     lu_crout!(F, copy(A2); s = 3)
-    @test behavior_passes(UpdatableLU, [F])
+    @test behavior_passes(ModifiableLU, [F])
     @test norm(Matrix(F) - A2) / norm(A2) < 1.0e-11
 end
 
@@ -828,7 +828,7 @@ end
 
 @testitem "qr_bcgs! reused at a smaller shape preserves the type invariants" begin
     using LinearAlgebra, Random, Test
-    using UpdatableFactorizations: TypeContracts
+    using ModifiableFactorizations: TypeContracts
     using .TypeContracts: behavior_passes
     Random.seed!(20260908)
     m1, n1 = 12, 8
@@ -837,6 +837,6 @@ end
     A2 = randn(m2, n2)
     qr_bcgs!(F, copy(A2); s = 2)
     @test size(F) == (m2, n2)
-    @test behavior_passes(UpdatableQR, [F])
+    @test behavior_passes(ModifiableQR, [F])
     @test norm(Matrix(F) - A2) / norm(A2) < 1.0e-13
 end
