@@ -90,3 +90,35 @@ end
         end
     end
 end
+
+@testitem "Cholesky insertion under FixedCapacity throws past capacity and leaves F unchanged" begin
+    using LinearAlgebra, Random
+    Random.seed!(20260930)
+    n = 5
+    for T in (Float64, ComplexF64)
+        B = randn(T, n + 1, n + 1)
+        A = Matrix(Hermitian(B * B' + (n + 1) * I))
+        col = A[:, 3]
+        keep = [1, 2, 4, 5, 6]
+
+        F = ModifiableCholesky(cholesky(Hermitian(A[keep, keep], :L)); capacity = n)
+        L0 = copy(F.L)
+        factors0 = copy(F.factors)
+        @test_throws "capacity policy is FixedCapacity()" insert_column!(
+            F, 3, col; capacity_policy = FixedCapacity()
+        )
+        @test size(F) == (n, n)
+        @test ModifiableFactorizations.capacity(F) == n
+        @test F.L == L0
+        @test F.factors == factors0
+
+        # Within capacity, FixedCapacity gives exactly what GrowCapacity does.
+        G = ModifiableCholesky(cholesky(Hermitian(A[keep, keep], :L)); capacity = n + 1)
+        H = ModifiableCholesky(cholesky(Hermitian(A[keep, keep], :L)); capacity = n + 1)
+        insert_column!(G, 3, col; capacity_policy = FixedCapacity())
+        insert_column!(H, 3, col)
+        @test G.L == H.L
+        @test norm(G.L * G.L' - A) / norm(A) < 1.0e-13
+        @test ModifiableFactorizations.capacity(G) == n + 1
+    end
+end

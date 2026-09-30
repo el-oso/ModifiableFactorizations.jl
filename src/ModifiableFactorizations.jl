@@ -11,13 +11,15 @@ using StrictMode
 
 export ModifiableCholesky, ModifiableLU, ModifiableQR
 export insert_column!, try_insert_column!, delete_column!, shift_columns!, insert_row!, delete_row!
+export GrowCapacity, FixedCapacity
 export qr_householder
 export cholesky_crout, lu_crout, qr_bcgs
 export cholesky_crout!, lu_crout!, qr_bcgs!
-public AbstractQRep, DenseQ, materialize, capacity
+public AbstractQRep, DenseQ, materialize, capacity, CapacityPolicy
 public AbstractModifiableCholesky, AbstractModifiableLU, AbstractModifiableQR
 public default_rankk!
 
+include("capacity.jl")
 include("cholesky_type.jl")
 include("cholesky_update.jl")
 include("cholesky_resize.jl")

@@ -195,6 +195,22 @@ function _grow!(F::ModifiableQR{T, S, <:DenseQ}, mneeded::Int, nneeded::Int) whe
     return F
 end
 
+# Under `FixedCapacity` the verb checks capacity on entry, before it changes anything, and its
+# growth step is then a no-op, so the reallocating path is absent from that specialization.
+_grow!(F::ModifiableQR, ::GrowCapacity, mneeded::Int, nneeded::Int) = _grow!(F, mneeded, nneeded)
+_grow!(F::ModifiableQR, ::FixedCapacity, ::Int, ::Int) = F
+
+_require_capacity(::ModifiableQR, ::GrowCapacity, ::Int, ::Int) = nothing
+function _require_capacity(F::ModifiableQR, ::FixedCapacity, mneeded::Int, nneeded::Int)
+    mcap, ncap = capacity(F)
+    (mneeded <= mcap && nneeded <= ncap) || throw(
+        ArgumentError(
+            lazy"a $(mneeded)x$(nneeded) factorization exceeds the capacity $(mcap)x$(ncap), and the capacity policy is FixedCapacity()"
+        )
+    )
+    return nothing
+end
+
 """
     ldiv!(y, F::ModifiableQR, b) -> y
 

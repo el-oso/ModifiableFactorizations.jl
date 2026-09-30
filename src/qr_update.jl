@@ -365,7 +365,7 @@ function LinearAlgebra.lowrankupdate!(
 end
 
 """
-    insert_column!(F::ModifiableQR, j, x; rtol = sqrt(eps(real(T)))) -> F
+    insert_column!(F::ModifiableQR, j, x; rtol = sqrt(eps(real(T))), capacity_policy = GrowCapacity()) -> F
 
 Insert `x` as column `j` of the factored matrix, in `O(mn + n|n + 1 - j|)` operations. `x` is
 not modified.
@@ -384,21 +384,25 @@ A `NaN` residual is refused at every `rtol`.
 `DimensionMismatch` is thrown when the factorization is square, because the type admits only
 `m >= n`.
 
+When the factorization is already at column capacity, [`GrowCapacity`](@ref) reallocates it and
+[`FixedCapacity`](@ref) throws `ArgumentError` before changing anything.
+
 Daniel, Gragg, Kaufman and Stewart, *Reorthogonalization and stable algorithms for updating the
 Gram-Schmidt QR factorization*, Mathematics of Computation 30 (1976), 772-795.
 """
 function insert_column!(
         F::ModifiableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector;
-        rtol::Real = sqrt(eps(real(T)))
+        rtol::Real = sqrt(eps(real(T))),
+        capacity_policy::CapacityPolicy = GrowCapacity()
     ) where {T, S}
-    inserted, rho = _insert_column!(F, j, x, rtol)
+    inserted, rho = _insert_column!(F, j, x, rtol, capacity_policy)
     inserted ||
         throw(ArgumentError(lazy"column $j lies in the range of the existing columns: rho = $rho"))
     return F
 end
 
 """
-    try_insert_column!(F::ModifiableQR, j, x; rtol = sqrt(eps(real(T)))) -> Bool
+    try_insert_column!(F::ModifiableQR, j, x; rtol = sqrt(eps(real(T))), capacity_policy = GrowCapacity()) -> Bool
 
 Insert `x` as column `j`, or report that it lies in the range of the columns already there.
 
@@ -412,14 +416,16 @@ inside a loop that guarantees it allocates nothing is not open to it, because an
 does.
 
 Rank deficiency is the only outcome reported this way. An index out of range, a length that
-does not match, or a factorization already square are all mistakes in the call rather than
-facts about the column, and still throw.
+does not match, a factorization already square, or an insertion past the capacity under
+[`FixedCapacity`](@ref) are all mistakes in the call rather than facts about the column, and
+still throw.
 """
 function try_insert_column!(
         F::ModifiableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector;
-        rtol::Real = sqrt(eps(real(T)))
+        rtol::Real = sqrt(eps(real(T))),
+        capacity_policy::CapacityPolicy = GrowCapacity()
     ) where {T, S}
-    inserted, _ = _insert_column!(F, j, x, rtol)
+    inserted, _ = _insert_column!(F, j, x, rtol, capacity_policy)
     return inserted
 end
 
@@ -428,7 +434,8 @@ end
 # diagonal entry of `R`, and the quantity the rank test reads. `F` is untouched when
 # `inserted` is false.
 function _insert_column!(
-        F::ModifiableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector, rtol::Real
+        F::ModifiableQR{T, S, <:DenseQ}, j::Integer, x::AbstractVector, rtol::Real,
+        capacity_policy::CapacityPolicy
     ) where {T, S}
     m, n = F.m, F.n
     1 <= j <= n + 1 || throw(BoundsError(F, j))
@@ -439,6 +446,7 @@ function _insert_column!(
             lazy"inserting a column would leave a $(m)x$(n + 1) factorization; the factorization requires m >= n"
         )
     )
+    _require_capacity(F, capacity_policy, m, n + 1)
     q = getfield(F, :qrep)
     Qa = _active(q)
     r = _spare(q)
@@ -467,7 +475,7 @@ function _insert_column!(
     # `_grow!` carries the augmentation column into the new buffer, so the direction built
     # through `r` survives; the view itself does not, and nothing below reads it. `w` stays
     # valid because `_grow!` resizes `F.work` rather than rebinding it.
-    _grow!(F, m, n + 1)
+    _grow!(F, capacity_policy, m, n + 1)
     R = getfield(F, :factors)
     for k in 1:n
         R[k, n + 1] = w[k]
@@ -488,7 +496,7 @@ function _insert_column!(
 end
 
 """
-    insert_row!(F::ModifiableQR, i, x) -> F
+    insert_row!(F::ModifiableQR, i, x; capacity_policy = GrowCapacity()) -> F
 
 Insert `x` as row `i` of the factored matrix, in `O(mn + n^2)` operations. `x` is the new row,
 not its adjoint, and is not modified.
@@ -498,19 +506,22 @@ the factorization to the taller matrix; `n` rotations then return the appended r
 zero and the extra column of `Q` is dropped.
 
 This is the verb that grows the row capacity, which re-strides every column of the stored
-factor. A caller that inserts rows in a loop should pre-size with `capacity`.
+factor. A caller that inserts rows in a loop should pre-size with `capacity`. With
+[`FixedCapacity`](@ref), an insertion past the row capacity throws instead.
 
 Golub and Van Loan, *Matrix Computations*, 4th edition, section 6.5.
 """
 function insert_row!(
-        F::ModifiableQR{T, S, <:DenseQ}, i::Integer, x::AbstractVector
+        F::ModifiableQR{T, S, <:DenseQ}, i::Integer, x::AbstractVector;
+        capacity_policy::CapacityPolicy = GrowCapacity()
     ) where {T, S}
     m, n = F.m, F.n
     1 <= i <= m + 1 || throw(BoundsError(F, i))
     length(x) == n ||
         throw(DimensionMismatch(lazy"x has length $(length(x)), factorization is $(m)x$(n)"))
+    _require_capacity(F, capacity_policy, m + 1, n)
     # Grow before taking any view: growth rebinds both buffers.
-    _grow!(F, m + 1, n)
+    _grow!(F, capacity_policy, m + 1, n)
     q = getfield(F, :qrep)
     _insertrow!(q, Int(i))
     R = getfield(F, :factors)

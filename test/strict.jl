@@ -508,3 +508,25 @@ end
     end
     test_signatures(verbs; guarantees = (:trim_compatible,))
 end
+
+@testitem "inserting verbs under FixedCapacity are proven allocation-free" begin
+    using LinearAlgebra, Random, StrictModeTest
+    Random.seed!(20260930)
+    # Under the default `GrowCapacity()` the reallocating path is compiled into these verbs, so
+    # AllocCheck cannot prove them allocation-free even when a caller never exceeds capacity.
+    # `FixedCapacity()` removes that path from the specialization.
+    m, n = 9, 4
+    A = randn(m, n)
+    x = randn(m)
+    row = randn(n)
+    mkqr() = ModifiableQR(A; capacity = (m + 1, n + 1))
+    F1, F2, F3 = mkqr(), mkqr(), mkqr()
+    @test_noalloc try_insert_column!(F1, n + 1, x; rtol = 0.0, capacity_policy = FixedCapacity())
+    @test_noalloc insert_column!(F2, n + 1, x; capacity_policy = FixedCapacity())
+    @test_noalloc insert_row!(F3, 3, row; capacity_policy = FixedCapacity())
+
+    B = randn(n + 1, n + 1)
+    S = Matrix(Hermitian(B * B' + (n + 1) * I))
+    C = ModifiableCholesky(cholesky(Hermitian(S[1:n, 1:n], :L)); capacity = n + 1)
+    @test_noalloc insert_column!(C, n + 1, S[:, n + 1]; capacity_policy = FixedCapacity())
+end

@@ -45,8 +45,25 @@ function _grow!(F::ModifiableCholesky{T}, needed::Int) where {T}
     return F
 end
 
+# Under `FixedCapacity` the verb checks capacity on entry, before it changes anything, and its
+# growth step is then a no-op, so the reallocating path is absent from that specialization.
+_grow!(F::ModifiableCholesky, ::GrowCapacity, needed::Int) = _grow!(F, needed)
+_grow!(F::ModifiableCholesky, ::FixedCapacity, ::Int) = F
+
+_require_capacity(::ModifiableCholesky, ::GrowCapacity, ::Int) = nothing
+function _require_capacity(F::ModifiableCholesky, ::FixedCapacity, needed::Int)
+    needed <= capacity(F) || throw(
+        ArgumentError(
+            lazy"size $needed exceeds the capacity $(capacity(F)), and the capacity policy is FixedCapacity()"
+        )
+    )
+    return nothing
+end
+
 # Append a new last index. `x` has length n+1, with its last entry the new diagonal entry.
-function _append!(F::ModifiableCholesky{T}, x::AbstractVector) where {T}
+function _append!(
+        F::ModifiableCholesky{T}, x::AbstractVector, policy::CapacityPolicy = GrowCapacity()
+    ) where {T}
     n = F.n
     length(x) == n + 1 ||
         throw(DimensionMismatch(lazy"x has length $(length(x)), expected $(n + 1)"))
@@ -63,7 +80,7 @@ function _append!(F::ModifiableCholesky{T}, x::AbstractVector) where {T}
     ldiv!(LowerTriangular(L), l)
     d = real(x[ix + n + 1]) - sum(abs2, l)
     d > 0 || throw(PosDefException(n + 1))
-    _grow!(F, n + 1)
+    _grow!(F, policy, n + 1)
     F.n = n + 1
     M = _lower(F)
     for k in 1:n
@@ -171,10 +188,12 @@ function shift_columns!(F::ModifiableCholesky, i::Integer, j::Integer)
 end
 
 """
-    insert_column!(F::ModifiableCholesky, j, x) -> F
+    insert_column!(F::ModifiableCholesky, j, x; capacity_policy = GrowCapacity()) -> F
 
 Insert a new index at position `j`, adding both a row and a column. `x` is the new row and
 column in the resulting indexing, so it has length `n+1` and `x[j]` is the new diagonal entry.
+When the factorization is already at capacity, [`GrowCapacity`](@ref) reallocates it and
+[`FixedCapacity`](@ref) throws.
 
 The new index is appended at position `n+1` and then moved down to `j` with `shift_columns!`, in
 `O((n - j + 2) * n)` operations: inserting near `n+1` is cheap, and inserting near `1` costs as
@@ -183,13 +202,17 @@ much as `shift_columns!(F, 1, n)`.
 Daniel, Gragg, Kaufman and Stewart, *Reorthogonalization and stable algorithms for updating the
 Gram-Schmidt QR factorization*, Mathematics of Computation 30 (1976), 772-795.
 """
-function insert_column!(F::ModifiableCholesky, j::Integer, x::AbstractVector)
+function insert_column!(
+        F::ModifiableCholesky, j::Integer, x::AbstractVector;
+        capacity_policy::CapacityPolicy = GrowCapacity()
+    )
     n = F.n
     length(x) == n + 1 ||
         throw(DimensionMismatch(lazy"x has length $(length(x)), expected $(n + 1)"))
     1 <= j <= n + 1 || throw(BoundsError(F, j))
+    _require_capacity(F, capacity_policy, n + 1)
     # Growing here leaves _append!'s own growth a no-op, so `y` stays a view of live storage.
-    _grow!(F, n + 1)
+    _grow!(F, capacity_policy, n + 1)
     y = view(F.rot, 1:(n + 1))
     ix = firstindex(x) - 1
     for k in 1:(j - 1)
@@ -199,6 +222,6 @@ function insert_column!(F::ModifiableCholesky, j::Integer, x::AbstractVector)
         y[k - 1] = x[ix + k]
     end
     y[n + 1] = x[ix + j]
-    _append!(F, y)
+    _append!(F, y, capacity_policy)
     return j == n + 1 ? F : shift_columns!(F, n + 1, Int(j))
 end

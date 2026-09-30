@@ -1056,3 +1056,46 @@ end
     delete_column!(F, 2)
     @test iszero(@allocated try_insert_column!(F, 2, x; rtol = 0))
 end
+
+@testitem "QR insertion under FixedCapacity throws past capacity and leaves F unchanged" begin
+    using LinearAlgebra, Random
+
+    Random.seed!(20260930)
+    m, n = 9, 4
+    for T in (Float64, ComplexF64)
+        A = randn(T, m, n)
+        x, row = randn(T, m), randn(T, n)
+
+        # At capacity in both dimensions: every inserting verb refuses before touching F.
+        F = ModifiableQR(A; capacity = (m, n))
+        Q0, R0 = copy(F.Q), copy(F.R)
+        buf0 = copy(getfield(F, :qrep).buf)
+        @test_throws "capacity policy is FixedCapacity()" insert_column!(
+            F, 2, x; capacity_policy = FixedCapacity()
+        )
+        @test_throws "capacity policy is FixedCapacity()" try_insert_column!(
+            F, n + 1, x; rtol = 0, capacity_policy = FixedCapacity()
+        )
+        @test_throws "capacity policy is FixedCapacity()" insert_row!(
+            F, 3, row; capacity_policy = FixedCapacity()
+        )
+        @test size(F) == (m, n)
+        @test ModifiableFactorizations.capacity(F) == (m, n)
+        @test F.Q == Q0 && F.R == R0
+        @test getfield(F, :qrep).buf == buf0
+
+        # The default policy grows the same factorization instead.
+        insert_column!(F, 2, x)
+        @test size(F) == (m, n + 1)
+
+        # Within capacity, FixedCapacity gives exactly what GrowCapacity does.
+        G = ModifiableQR(A; capacity = (m + 1, n + 1))
+        H = ModifiableQR(A; capacity = (m + 1, n + 1))
+        insert_column!(G, 2, x; capacity_policy = FixedCapacity())
+        insert_column!(H, 2, x)
+        insert_row!(G, 3, randn(Random.Xoshiro(1), T, n + 1); capacity_policy = FixedCapacity())
+        insert_row!(H, 3, randn(Random.Xoshiro(1), T, n + 1))
+        @test G.Q == H.Q && G.R == H.R
+        @test ModifiableFactorizations.capacity(G) == (m + 1, n + 1)
+    end
+end
