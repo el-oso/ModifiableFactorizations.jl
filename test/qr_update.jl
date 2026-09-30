@@ -8,14 +8,15 @@
         @test norm(A' * A - I) > 1
         for j in 1:n
             F = UpdatableQR(A)
-            # Poison Q's spare storage before deleting: `delete_column!` must re-establish the
-            # zero invariant there itself, not rely on it already holding. R's spare storage is
+            # Poison Q's augmentation column before deleting: other verbs leave their working
+            # there, and `delete_column!` must clear it itself. The columns past it are zero by
+            # the invariant, which no verb breaks, so they are not poisoned. R's spare storage is
             # not poisoned: the column this call vacates is part of the active factorization
             # until the call runs, so corrupting it here would corrupt the reconstruction below
             # rather than test the invariant; its genuine post-call leftover already exercises
             # the same clearing.
             Qbefore = getfield(F, :qrep)
-            fill!(view(Qbefore.buf, :, (F.n + 1):size(Qbefore.buf, 2)), T(88))
+            fill!(view(Qbefore.buf, :, F.n + 1), T(88))
             delete_column!(F, j)
             keep = setdiff(1:n, j)
             @test size(F) == (m, n - 1)

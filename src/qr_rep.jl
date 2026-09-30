@@ -96,9 +96,12 @@ function _deleterow!(q::DenseQ{T}, i::Integer) where {T}
     return q
 end
 
+# Only the vacated column and the augmentation column after it can hold data: every column past
+# those is zero by the invariant. Clearing the whole spare capacity instead costs O(m * capacity)
+# per deletion, which dominates deletion when the capacity is large.
 function _dropcolumn!(q::DenseQ{T}) where {T}
     q.n -= 1
-    fill!(view(q.buf, :, (q.n + 1):size(q.buf, 2)), zero(T))
+    fill!(view(q.buf, :, (q.n + 1):(q.n + 2)), zero(T))
     return q
 end
 
