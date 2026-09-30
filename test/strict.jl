@@ -384,11 +384,10 @@ end
         lowrankdowndate!(mk(), v ./ 4)
     end
     A, C, E, G2, H = mk(), mk(), mk(), mk(), mk()
-    # `@strict` guards `_ch1up!`'s call inside `lowrankupdate!` and `_ch1dn!`'s call inside
-    # `lowrankdowndate!`, but measured: `@verify_strict`'s own type-stability check does not
-    # throw on either call, unlike `@test_typestable` above (which uses JET and does), so both
-    # are included here; the `@assert_owned`/`@assert_noalloc` warnings this block prints for
-    # them are exactly the guard's own bookkeeping.
+    # `insert_column!` prints a report-only `@noalloc` warning: the value-free scan sees `_grow!`,
+    # which does allocate when the insertion exceeds capacity, and the aliasing copy in
+    # `ldiv!`'s generic `copyto!`, which never runs because source and destination are the same
+    # array.
     StrictMode.@verify_strict const_type begin
         delete_column!(A, 3)
         shift_columns!(C, 1, 4)
@@ -412,10 +411,6 @@ end
         lowrankupdate!(UpdatableLU(lu(randn(n, n) + n * I)), u, v)
     end
     G = UpdatableLU(lu(randn(n, n) + n * I))
-    # `@strict` guards `_bennett!`'s call inside `lowrankupdate!`, but measured: `@verify_strict`'s
-    # own type-stability check does not throw on it, unlike `@test_typestable` above (which uses
-    # JET and does), so the call is included here; the `@assert_owned`/`@assert_noalloc` warnings
-    # this block prints for it are exactly the guard's own bookkeeping.
     StrictMode.@verify_strict const_type begin
         lowrankupdate!(G, u, v)
         size(G)
@@ -440,10 +435,8 @@ end
     end
     A, C, E, G2, H, K = mk(), mk(), mk(), mk(), mk(), mk()
     u, v = randn(m), randn(n)
-    # `@strict` guards `_absorb_spike!`'s call inside `lowrankupdate!`, but measured:
-    # `@verify_strict`'s own type-stability check does not throw on it, unlike `@test_typestable`
-    # above (which uses JET and does), so the call is included here; the `@assert_owned`/
-    # `@assert_noalloc` warnings this block prints for it are exactly the guard's own bookkeeping.
+    # `insert_column!` and `insert_row!` print report-only `@noalloc` warnings: the value-free
+    # scan sees `_grow!`, which does allocate when the insertion exceeds capacity.
     StrictMode.@verify_strict const_type begin
         insert_column!(A, 2, randn(m))
         delete_column!(C, 4)

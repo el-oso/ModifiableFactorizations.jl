@@ -17,6 +17,8 @@
     # A Dual matrix built from Float64 random entries is positive definite only because the
     # underlying Float64 matrix is; building it directly from random duals would not guarantee
     # that.
+    # BigFloat arithmetic allocates and calls `get` on a dictionary, so the
+    # `@strict` guards on the rank-1 kernels print `@noalloc` and `@owned` warnings for it.
     for T in (Float32, BigFloat, DualT)
         A = T.(A64)
         v = T.(v64)
@@ -192,6 +194,8 @@ end
     x64 = randn(m)
     row64 = randn(n)
 
+    # BigFloat arithmetic allocates and calls `get` on a dictionary, so the
+    # `@strict` guards on the rank-1 kernels print `@noalloc` and `@owned` warnings for it.
     for T in (Float32, BigFloat, DualT)
         A = T.(A64)
         u = T.(u64)
