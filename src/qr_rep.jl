@@ -30,7 +30,7 @@ Base.eltype(::AbstractQRep{T}) where {T} = T
 Base.Matrix(q::AbstractQRep{T}) where {T} = copyto!(Matrix{T}(undef, size(q)), q)
 
 function Base.size(q::AbstractQRep, dim::Integer)
-    dim < 1 && throw(ArgumentError("dimension must be positive, got $dim"))
+    dim < 1 && throw(ArgumentError(lazy"dimension must be positive, got $dim"))
     return dim <= 2 ? size(q)[dim] : 1
 end
 

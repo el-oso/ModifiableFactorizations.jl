@@ -24,8 +24,8 @@ function LinearAlgebra.lowrankupdate!(
     ) where {T}
     _checkvalid(F)
     n = length(getfield(F, :d))
-    length(u) == n || throw(DimensionMismatch("u has length $(length(u)), factorization is $n"))
-    length(v) == n || throw(DimensionMismatch("v has length $(length(v)), factorization is $n"))
+    length(u) == n || throw(DimensionMismatch(lazy"u has length $(length(u)), factorization is $n"))
+    length(v) == n || throw(DimensionMismatch(lazy"v has length $(length(v)), factorization is $n"))
     p = getfield(F, :p)
     work = getfield(F, :work)
     w = view(work, 1:n)

@@ -1,14 +1,15 @@
 # Runs in a fresh Julia process, on a temporary project (built here, from `ARGS[1]`, the package
 # root) whose LocalPreferences.toml sets `StrictMode.checks_enabled = false` — the configuration
-# the package ships in. Measures every updating verb's allocation with `@allocated`, and proves
+# the package ships in. Measures every updating verb's allocation with `@allocated`, proves
 # type stability for the four `@strict`-guarded kernels by reproducing
-# `StrictModeTest`'s own `@test_typestable` definition directly against `JET`. Prints one
-# "label\tbytes" line per allocation measurement, one "TS label\tPASS"/"TS label\tFAIL" line per
-# type-stability check, plus a "checks_enabled\t<bool>" line recording whether the preference
-# actually took effect. `test/strict.jl`'s "updating verbs allocate nothing and are type stable
-# with checks disabled" testitem launches this as a subprocess and asserts on its output; nothing
-# here calls `@test` itself, since a `Test` failure inside a discarded worker process would be
-# invisible to the parent.
+# `StrictModeTest`'s own `@test_typestable` definition directly against `JET`, and checks their
+# `--trim=safe` compatibility with StrictMode's static scan. Prints one "label\tbytes" line per
+# allocation measurement, one "TS label\tPASS"/"TS label\tFAIL" line per type-stability check,
+# one "TRIM label\tPASS"/"TRIM label\tFAIL" line per trim check, plus a "checks_enabled\t<bool>"
+# line recording whether the preference actually took effect. `test/strict.jl`'s "updating verbs
+# allocate nothing and are type stable and trim compatible with checks disabled" testitem launches
+# this as a subprocess and asserts on its output; nothing here calls `@test` itself, since a
+# `Test` failure inside a discarded worker process would be invisible to the parent.
 #
 # `StrictMode` must be a direct dependency of this project, not merely a transitive one through
 # `ModifiableFactorizations`: Preferences.jl only reads a `LocalPreferences.toml` entry for packages
@@ -55,6 +56,17 @@ end
 
 report_ts(label, ok::Bool) = println("TS ", label, "\t", ok ? "PASS" : "FAIL")
 
+# `--trim=safe` compatibility of a guarded kernel, from StrictMode's static scan. With checks
+# enabled the `@strict` guard's own reflection is compiled into the verb and is not trimmable, so
+# this is the configuration that can be trimmed; `StrictModeTest`'s verifier-backed check covers
+# the unguarded verbs with checks enabled in `test/strict.jl`.
+function check_trim(label, @nospecialize(f), @nospecialize(types::Tuple))
+    r = StrictMode._trim_report(f, types)
+    println("TRIM ", label, "\t", r.passed ? "PASS" : "FAIL")
+    r.passed || println(stderr, "TRIM ", label, " failed: ", r.findings)
+    return nothing
+end
+
 # Executes the call once, as `@test_typestable` would, then proves type stability against the
 # argument types actually used.
 function check_typestable(label, @nospecialize(f), args...)
@@ -62,6 +74,7 @@ function check_typestable(label, @nospecialize(f), args...)
     ok, reason = typestable(f, typeof.(args))
     report_ts(label, ok)
     ok || println(stderr, "TS ", label, " failed: ", reason)
+    check_trim(label, f, typeof.(args))
     return nothing
 end
 

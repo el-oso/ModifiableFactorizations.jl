@@ -87,8 +87,8 @@ function cholesky_crout(
     ) where {T}
     Base.require_one_based_indexing(A)
     n = LinearAlgebra.checksquare(A)
-    s >= 1 || throw(ArgumentError("block size s must be at least 1, got $s"))
-    capacity >= n || throw(ArgumentError("capacity $capacity is below the size $n"))
+    s >= 1 || throw(ArgumentError(lazy"block size s must be at least 1, got $s"))
+    capacity >= n || throw(ArgumentError(lazy"capacity $capacity is below the size $n"))
     Hermitian(A, uplo)   # throws when A is a Symmetric/Hermitian wrapper for the other triangle
     # Only the lower triangle (row >= col) is ever read below, whatever `uplo` names, so only
     # that triangle is populated; the upper triangle stays at its zero-initialized value and is
@@ -162,7 +162,7 @@ _pivotrow(::RowMaximum, col) = findmax(abs, col)[2]
 # `LinearAlgebra.generic_lufact!` does.
 _pivotrow(::RowMaximum, col::StridedVector{<:LinearAlgebra.BlasReal}) = BLAS.iamax(col)
 _pivotrow(pivot, col) = throw(
-    ArgumentError("pivoting strategy $pivot is not supported; use NoPivot() or RowMaximum()")
+    ArgumentError(lazy"pivoting strategy $pivot is not supported; use NoPivot() or RowMaximum()")
 )
 
 # Core Crout LU loop shared by `lu_crout` and `lu_crout!`. `M` is the n x n working matrix,
@@ -263,7 +263,7 @@ function lu_crout(
     ) where {T}
     Base.require_one_based_indexing(A)
     n = LinearAlgebra.checksquare(A)
-    s >= 1 || throw(ArgumentError("block size s must be at least 1, got $s"))
+    s >= 1 || throw(ArgumentError(lazy"block size s must be at least 1, got $s"))
     M = Matrix{T}(undef, n, n)
     copyto!(M, A)
     L = zeros(T, n, n)
@@ -370,7 +370,7 @@ function _qr_bcgs_kernel!(
         # The threshold is relative to the original column, not to `v`: by this point the
         # deferred flush has already projected `v` against every earlier block.
         (iszero(nv) || nv <= rtol * real(colnorms[c])) &&
-            throw(ArgumentError("column $c is a combination of the columns before it"))
+            throw(ArgumentError(lazy"column $c is a combination of the columns before it"))
         R[c, c] = nv
         v ./= nv
         copyto!(Q[:, c], v)
@@ -416,11 +416,11 @@ function qr_bcgs(
     ) where {T}
     Base.require_one_based_indexing(A)
     m, n = size(A)
-    m >= n || throw(DimensionMismatch("A is $m by $n; qr_bcgs requires m >= n"))
-    s >= 1 || throw(ArgumentError("block size s must be at least 1, got $s"))
+    m >= n || throw(DimensionMismatch(lazy"A is $m by $n; qr_bcgs requires m >= n"))
+    s >= 1 || throw(ArgumentError(lazy"block size s must be at least 1, got $s"))
     mcap, ncap = Int(capacity[1]), Int(capacity[2])
-    mcap >= m || throw(ArgumentError("row capacity $mcap is below the size $m"))
-    ncap >= n || throw(ArgumentError("column capacity $ncap is below the size $n"))
+    mcap >= m || throw(ArgumentError(lazy"row capacity $mcap is below the size $m"))
+    ncap >= n || throw(ArgumentError(lazy"column capacity $ncap is below the size $n"))
     colnorms = Vector{T}(undef, n)
     for c in 1:n
         colnorms[c] = T(norm(view(A, :, c)))

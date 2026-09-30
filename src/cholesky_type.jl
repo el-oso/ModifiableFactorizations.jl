@@ -37,7 +37,7 @@ end
 
 function ModifiableCholesky(C::Cholesky{T}; capacity::Int = 2size(C, 1) + 1) where {T}
     n = size(C, 1)
-    capacity >= n || throw(ArgumentError("capacity $capacity is below the size $n"))
+    capacity >= n || throw(ArgumentError(lazy"capacity $capacity is below the size $n"))
     f = zeros(T, capacity, capacity)
     # Cholesky.factors only guarantees the stored triangle; LAPACK leaves the factored matrix in
     # the other one. Copying the stored triangle alone keeps the unstored half a true zero,
@@ -63,7 +63,7 @@ _lower(F::ModifiableCholesky) = view(F.factors, 1:F.n, 1:F.n)
 
 Base.size(F::ModifiableCholesky) = (F.n, F.n)
 function Base.size(F::ModifiableCholesky, dim::Integer)
-    dim < 1 && throw(ArgumentError("dimension must be positive, got $dim"))
+    dim < 1 && throw(ArgumentError(lazy"dimension must be positive, got $dim"))
     return dim <= 2 ? F.n : 1
 end
 

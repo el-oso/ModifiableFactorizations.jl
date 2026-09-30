@@ -9,7 +9,7 @@ Mathematics of Computation 28 (1974), 505-535.
 """
 function LinearAlgebra.lowrankupdate!(F::ModifiableCholesky, v::AbstractVector)
     length(v) == F.n ||
-        throw(DimensionMismatch("v has length $(length(v)), factorization is $(F.n)"))
+        throw(DimensionMismatch(lazy"v has length $(length(v)), factorization is $(F.n)"))
     w = view(F.work, 1:F.n)
     iv = firstindex(v) - 1
     for i in 1:F.n
@@ -51,7 +51,7 @@ direct hyperbolic form is not.
 """
 function LinearAlgebra.lowrankdowndate!(F::ModifiableCholesky, v::AbstractVector)
     length(v) == F.n ||
-        throw(DimensionMismatch("v has length $(length(v)), factorization is $(F.n)"))
+        throw(DimensionMismatch(lazy"v has length $(length(v)), factorization is $(F.n)"))
     w = view(F.work, 1:F.n)
     iv = firstindex(v) - 1
     for i in 1:F.n

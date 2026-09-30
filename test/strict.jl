@@ -22,7 +22,7 @@ end
     @test_noalloc lowrankdowndate!(mk(), v)
 end
 
-@testitem "updating verbs allocate nothing and are type stable with checks disabled" begin
+@testitem "updating verbs allocate nothing and are type stable and trim compatible with checks disabled" begin
     using ModifiableFactorizations
     # `StrictMode.checks_enabled()` is a `const` baked in at precompile time, so no in-process
     # trick can flip it for the four `@strict`-guarded kernels; this proof needs a real separate
@@ -57,6 +57,7 @@ end
         checks_enabled = nothing
         bytes = Dict{String, Int}()
         typestable = Dict{String, String}()
+        trim = Dict{String, String}()
         for line in split(text, '\n')
             isempty(line) && continue
             label, value = split(line, '\t')
@@ -64,13 +65,15 @@ end
                 checks_enabled = parse(Bool, value)
             elseif startswith(label, "TS ")
                 typestable[label] = value
+            elseif startswith(label, "TRIM ")
+                trim[label] = value
             else
                 bytes[label] = parse(Int, value)
             end
         end
-        return checks_enabled, bytes, typestable
+        return checks_enabled, bytes, typestable, trim
     end
-    checks_enabled, bytes, typestable = parse_gate_output(String(take!(out)))
+    checks_enabled, bytes, typestable, trim = parse_gate_output(String(take!(out)))
     # A subprocess that silently ran with checks still on would report every guarded verb as
     # allocating, which reads as a real gate failure; one that silently ran with checks on and
     # every verb *unguarded* would report zero for the wrong reason. Either way, this must fail
@@ -87,6 +90,11 @@ end
     unstable = [(label, v) for (label, v) in typestable if v != "PASS"]
     isempty(unstable) || @info "gate found a type-unstable guarded kernel with checks disabled" unstable
     @test isempty(unstable)
+
+    @test length(trim) == 8   # the same 4 guarded kernels x 2 types
+    untrimmable = [(label, v) for (label, v) in trim if v != "PASS"]
+    isempty(untrimmable) || @info "gate found a guarded kernel that is not trim compatible with checks disabled" untrimmable
+    @test isempty(untrimmable)
 end
 
 @testitem "factorization invariants hold after every operation" begin
@@ -467,4 +475,36 @@ end
         )
         @test !isempty(findings)
     end
+end
+
+@testitem "unguarded verbs are trim compatible" begin
+    using LinearAlgebra, StrictModeTest
+    # Checks are enabled here, which compiles each `@strict` guard's own reflection into the
+    # rank-1 verbs and makes them untrimmable; "updating verbs allocate nothing and are type
+    # stable and trim compatible with checks disabled" covers those in the configuration that
+    # is trimmed. Every other verb must pass as is, error messages included.
+    V = Vector{Float64}
+    Q = ModifiableQR{Float64, Matrix{Float64}, ModifiableFactorizations.DenseQ{Float64, Matrix{Float64}}}
+    C = ModifiableCholesky{Float64, Float64, Matrix{Float64}}
+    verbs = Any[
+        (delete_column!, (Q, Int)),
+        (shift_columns!, (Q, Int, Int)),
+        (insert_row!, (Q, Int, V)),
+        (ldiv!, (V, Q, V)),
+        (insert_column!, (C, Int, V)),
+        (delete_column!, (C, Int)),
+        (shift_columns!, (C, Int, Int)),
+    ]
+    # These three call `LinearAlgebra.norm`, which on Julia 1.12 is itself not trim compatible
+    # (a `Base.MappingRF` over abstractly typed functions in `LinearAlgebra.norm`); on 1.13 it is.
+    if VERSION >= v"1.13"
+        append!(
+            verbs, [
+                (try_insert_column!, (Q, Int, V)),
+                (insert_column!, (Q, Int, V)),
+                (delete_row!, (Q, Int)),
+            ]
+        )
+    end
+    test_signatures(verbs; guarantees = (:trim_compatible,))
 end

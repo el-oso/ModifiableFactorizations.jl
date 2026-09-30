@@ -159,8 +159,7 @@ function delete_row!(
     1 <= i <= m || throw(BoundsError(F, i))
     m > n || throw(
         DimensionMismatch(
-            "deleting row $i would leave a $(m - 1)x$n factorization; " *
-                "the factorization requires m >= n"
+            lazy"deleting row $i would leave a $(m - 1)x$n factorization; the factorization requires m >= n"
         )
     )
     q = getfield(F, :qrep)
@@ -180,7 +179,7 @@ function delete_row!(
         _clearspare!(q)
         throw(
             ArgumentError(
-                "row $i has leverage one: gamma = $g; deleting it drops the numerical rank"
+                lazy"row $i has leverage one: gamma = $g; deleting it drops the numerical rank"
             )
         )
     end
@@ -298,9 +297,9 @@ function LinearAlgebra.lowrankupdate!(
     ) where {T, S}
     m, n = F.m, F.n
     length(u) == m ||
-        throw(DimensionMismatch("u has length $(length(u)), factorization is $(m)x$(n)"))
+        throw(DimensionMismatch(lazy"u has length $(length(u)), factorization is $(m)x$(n)"))
     length(v) == n ||
-        throw(DimensionMismatch("v has length $(length(v)), factorization is $(m)x$(n)"))
+        throw(DimensionMismatch(lazy"v has length $(length(v)), factorization is $(m)x$(n)"))
     q = getfield(F, :qrep)
     Qa = _active(q)
     r = _spare(q)
@@ -394,7 +393,7 @@ function insert_column!(
     ) where {T, S}
     inserted, rho = _insert_column!(F, j, x, rtol)
     inserted ||
-        throw(ArgumentError("column $j lies in the range of the existing columns: rho = $rho"))
+        throw(ArgumentError(lazy"column $j lies in the range of the existing columns: rho = $rho"))
     return F
 end
 
@@ -434,11 +433,10 @@ function _insert_column!(
     m, n = F.m, F.n
     1 <= j <= n + 1 || throw(BoundsError(F, j))
     length(x) == m ||
-        throw(DimensionMismatch("x has length $(length(x)), factorization is $(m)x$(n)"))
+        throw(DimensionMismatch(lazy"x has length $(length(x)), factorization is $(m)x$(n)"))
     m > n || throw(
         DimensionMismatch(
-            "inserting a column would leave a $(m)x$(n + 1) factorization; " *
-                "the factorization requires m >= n"
+            lazy"inserting a column would leave a $(m)x$(n + 1) factorization; the factorization requires m >= n"
         )
     )
     q = getfield(F, :qrep)
@@ -510,7 +508,7 @@ function insert_row!(
     m, n = F.m, F.n
     1 <= i <= m + 1 || throw(BoundsError(F, i))
     length(x) == n ||
-        throw(DimensionMismatch("x has length $(length(x)), factorization is $(m)x$(n)"))
+        throw(DimensionMismatch(lazy"x has length $(length(x)), factorization is $(m)x$(n)"))
     # Grow before taking any view: growth rebinds both buffers.
     _grow!(F, m + 1, n)
     q = getfield(F, :qrep)

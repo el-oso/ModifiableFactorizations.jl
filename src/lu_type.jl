@@ -44,7 +44,7 @@ ModifiableLU(A::AbstractMatrix; pivot = RowMaximum()) = ModifiableLU(lu(A, pivot
 
 Base.size(F::ModifiableLU) = (length(getfield(F, :d)), length(getfield(F, :d)))
 function Base.size(F::ModifiableLU, dim::Integer)
-    dim < 1 && throw(ArgumentError("dimension must be positive, got $dim"))
+    dim < 1 && throw(ArgumentError(lazy"dimension must be positive, got $dim"))
     return dim <= 2 ? length(getfield(F, :d)) : 1
 end
 
@@ -63,7 +63,7 @@ function _checkvalid(F::ModifiableLU)
     info = getfield(F, :info)
     iszero(info) || throw(
         ArgumentError(
-            "factorization is invalid: an update failed at column $info, rebuild it"
+            lazy"factorization is invalid: an update failed at column $info, rebuild it"
         )
     )
     return nothing

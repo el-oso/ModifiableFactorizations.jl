@@ -50,7 +50,7 @@ end
 function _wrap_qr(qbuf::Matrix{T}, rbuf::Matrix{T}, m::Int, n::Int) where {T}
     for k in 1:n
         iszero(rbuf[k, k]) &&
-            throw(ArgumentError("column $k is rank deficient: R[$k,$k] is zero"))
+            throw(ArgumentError(lazy"column $k is rank deficient: R[$k,$k] is zero"))
     end
     ncap = size(rbuf, 1) - 1
     return ModifiableQR{T, Matrix{T}, DenseQ{T, Matrix{T}}}(
@@ -64,10 +64,10 @@ function ModifiableQR(
         capacity::Tuple{Integer, Integer} = (2size(G, 1), 2size(G, 2))
     ) where {T}
     m, n = size(G)
-    m >= n || throw(DimensionMismatch("factorization is $(m)x$(n); it requires m >= n"))
+    m >= n || throw(DimensionMismatch(lazy"factorization is $(m)x$(n); it requires m >= n"))
     mcap, ncap = Int(capacity[1]), Int(capacity[2])
-    mcap >= m || throw(ArgumentError("row capacity $mcap is below the size $m"))
-    ncap >= n || throw(ArgumentError("column capacity $ncap is below the size $n"))
+    mcap >= m || throw(ArgumentError(lazy"row capacity $mcap is below the size $m"))
+    ncap >= n || throw(ArgumentError(lazy"column capacity $ncap is below the size $n"))
     qbuf = zeros(T, mcap, ncap + 1)
     qv = view(qbuf, 1:m, 1:n)
     for k in 1:n
@@ -101,15 +101,15 @@ function ModifiableQR(
     ) where {T}
     Base.require_one_based_indexing(Q, R)
     m, n = size(Q)
-    m >= n || throw(DimensionMismatch("Q is $(m) by $(n); it requires m >= n"))
+    m >= n || throw(DimensionMismatch(lazy"Q is $(m) by $(n); it requires m >= n"))
     size(R, 1) == size(R, 2) ||
-        throw(DimensionMismatch("R is $(size(R, 1)) by $(size(R, 2)); it must be square"))
+        throw(DimensionMismatch(lazy"R is $(size(R, 1)) by $(size(R, 2)); it must be square"))
     size(R, 1) == n || throw(
-        DimensionMismatch("Q is $(m) by $(n) and R is $(size(R, 1)) by $(size(R, 2))")
+        DimensionMismatch(lazy"Q is $(m) by $(n) and R is $(size(R, 1)) by $(size(R, 2))")
     )
     mcap, ncap = Int(capacity[1]), Int(capacity[2])
-    mcap >= m || throw(ArgumentError("row capacity $mcap is below the size $m"))
-    ncap >= n || throw(ArgumentError("column capacity $ncap is below the size $n"))
+    mcap >= m || throw(ArgumentError(lazy"row capacity $mcap is below the size $m"))
+    ncap >= n || throw(ArgumentError(lazy"column capacity $ncap is below the size $n"))
     qbuf = zeros(T, mcap, ncap + 1)
     copyto!(view(qbuf, 1:m, 1:n), Q)
     rbuf = zeros(T, ncap + 1, ncap + 1)
@@ -148,7 +148,7 @@ capacity(F::ModifiableQR) = capacity(getfield(F, :qrep))
 
 Base.size(F::ModifiableQR) = (F.m, F.n)
 function Base.size(F::ModifiableQR, dim::Integer)
-    dim < 1 && throw(ArgumentError("dimension must be positive, got $dim"))
+    dim < 1 && throw(ArgumentError(lazy"dimension must be positive, got $dim"))
     return dim <= 2 ? size(F)[dim] : 1
 end
 
@@ -199,18 +199,18 @@ end
     ldiv!(y, F::ModifiableQR, b) -> y
 
 Overwrite `y` with the least-squares solution `R \\ (Q'b)`. `b` has length `size(F, 1)` and `y`
-length `size(F, 2)`. Allocates nothing.
+length `size(F, 2)`. `b` is not modified. Allocates nothing.
 
 Both arguments are indexed from 1. The updating verbs accept offset vectors because they copy
-their argument into the factorization's own storage; the solve applies `Q'` to `b` in place and
-has nowhere to put an `m`-length copy.
+their argument into the factorization's own storage; the solve reads `b` directly, through
+`mul!`, with no copy to re-index.
 """
 function LinearAlgebra.ldiv!(y::AbstractVector, F::ModifiableQR, b::AbstractVector)
     Base.require_one_based_indexing(y, b)
     length(b) == F.m ||
-        throw(DimensionMismatch("b has length $(length(b)), factorization is $(F.m)x$(F.n)"))
+        throw(DimensionMismatch(lazy"b has length $(length(b)), factorization is $(F.m)x$(F.n)"))
     length(y) == F.n ||
-        throw(DimensionMismatch("y has length $(length(y)), factorization is $(F.m)x$(F.n)"))
+        throw(DimensionMismatch(lazy"y has length $(length(y)), factorization is $(F.m)x$(F.n)"))
     mul!(y, F.Q', b)
     ldiv!(UpperTriangular(_upper(F)), y)
     return y
@@ -227,7 +227,7 @@ matching `ldiv!(::QRCompactWY, ::AbstractVecOrMat)`. The trailing rows are left 
 function LinearAlgebra.ldiv!(F::ModifiableQR, B::AbstractVecOrMat)
     Base.require_one_based_indexing(B)
     size(B, 1) == F.m ||
-        throw(DimensionMismatch("B has $(size(B, 1)) rows, factorization is $(F.m)x$(F.n)"))
+        throw(DimensionMismatch(lazy"B has $(size(B, 1)) rows, factorization is $(F.m)x$(F.n)"))
     y = view(F.work, 1:F.n)
     for c in axes(B, 2)
         col = view(B, :, c)
@@ -255,7 +255,7 @@ a real `F`, would not fit it.
 function Base.:\(F::ModifiableQR, B::AbstractVecOrMat)
     Base.require_one_based_indexing(B)
     size(B, 1) == F.m ||
-        throw(DimensionMismatch("B has $(size(B, 1)) rows, factorization is $(F.m)x$(F.n)"))
+        throw(DimensionMismatch(lazy"B has $(size(B, 1)) rows, factorization is $(F.m)x$(F.n)"))
     TFB = typeof(oneunit(eltype(F)) \ oneunit(eltype(B)))
     Y = _project(F, B, TFB)
     ldiv!(UpperTriangular(_upper(F)), Y)

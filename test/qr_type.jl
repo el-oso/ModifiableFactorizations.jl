@@ -191,8 +191,10 @@ end
         @test norm(A' * (A * x - b)) / norm(A' * b) < 1.0e-11
 
         y = similar(b, n)
+        b0 = copy(b)
         ldiv!(y, F, b)
         @test y ≈ x
+        @test b == b0
 
         B = randn(T, m, 3)
         X = F \ B

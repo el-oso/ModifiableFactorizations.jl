@@ -49,7 +49,7 @@ end
 function _append!(F::ModifiableCholesky{T}, x::AbstractVector) where {T}
     n = F.n
     length(x) == n + 1 ||
-        throw(DimensionMismatch("x has length $(length(x)), expected $(n + 1)"))
+        throw(DimensionMismatch(lazy"x has length $(length(x)), expected $(n + 1)"))
     L = _lower(F)
     l = view(F.work, 1:n)
     ix = firstindex(x) - 1
@@ -186,7 +186,7 @@ Gram-Schmidt QR factorization*, Mathematics of Computation 30 (1976), 772-795.
 function insert_column!(F::ModifiableCholesky, j::Integer, x::AbstractVector)
     n = F.n
     length(x) == n + 1 ||
-        throw(DimensionMismatch("x has length $(length(x)), expected $(n + 1)"))
+        throw(DimensionMismatch(lazy"x has length $(length(x)), expected $(n + 1)"))
     1 <= j <= n + 1 || throw(BoundsError(F, j))
     # Growing here leaves _append!'s own growth a no-op, so `y` stays a view of live storage.
     _grow!(F, n + 1)
