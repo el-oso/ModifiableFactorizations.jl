@@ -31,4 +31,16 @@ include("qr_update.jl")
 include("construct.jl")
 include("contracts.jl")
 
+# Contract checks, run at precompile time. Top-level `@verify` is not reachable from any entry
+# point, so a trimmed binary does not contain it. One concrete instantiation per element type
+# suffices because every verb is generic over the type parameters.
+@verify DenseQ{Float64, Matrix{Float64}} trim_compat = true
+@verify DenseQ{ComplexF64, Matrix{ComplexF64}} trim_compat = true
+@verify ModifiableCholesky{Float64, Float64, Matrix{Float64}} trim_compat = true
+@verify ModifiableCholesky{ComplexF64, Float64, Matrix{ComplexF64}} trim_compat = true
+@verify ModifiableLU{Float64, Matrix{Float64}} trim_compat = true
+@verify ModifiableLU{ComplexF64, Matrix{ComplexF64}} trim_compat = true
+@verify ModifiableQR{Float64, Matrix{Float64}, DenseQ{Float64, Matrix{Float64}}} trim_compat = true
+@verify ModifiableQR{ComplexF64, Matrix{ComplexF64}, DenseQ{ComplexF64, Matrix{ComplexF64}}} trim_compat = true
+
 end

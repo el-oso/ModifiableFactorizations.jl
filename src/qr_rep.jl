@@ -138,5 +138,3 @@ function _complete_column!(q::DenseQ{T}, w, corr) where {T}
     end
     return q
 end
-
-@verify DenseQ
