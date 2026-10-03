@@ -477,7 +477,7 @@ end
     end
 end
 
-@testitem "unguarded verbs are trim compatible" begin
+@testitem "unguarded verbs and construction routines are trim compatible" begin
     using LinearAlgebra, StrictModeTest
     # Checks are enabled here, which compiles each `@strict` guard's own reflection into the
     # rank-1 verbs and makes them untrimmable; "updating verbs allocate nothing and are type
@@ -494,15 +494,24 @@ end
         (insert_column!, (C, Int, V)),
         (delete_column!, (C, Int)),
         (shift_columns!, (C, Int, Int)),
+        (cholesky_crout, (Matrix{Float64},)),
+        (cholesky_crout!, (C, Matrix{Float64})),
     ]
-    # These three call `LinearAlgebra.norm`, which on Julia 1.12 is itself not trim compatible
-    # (a `Base.MappingRF` over abstractly typed functions in `LinearAlgebra.norm`); on 1.13 it is.
+    # On Julia 1.12 these reach `LinearAlgebra.norm` or a `mapreduce` that stock Base does not
+    # resolve statically (a `Base.MappingRF` over abstractly typed functions). The patches
+    # `juliac --trim=safe` applies to Base before trimming resolve them, so a trimmed build
+    # accepts these functions; this check verifies against stock Base, which on 1.13 resolves
+    # them too.
     if VERSION >= v"1.13"
         append!(
             verbs, [
                 (try_insert_column!, (Q, Int, V)),
                 (insert_column!, (Q, Int, V)),
                 (delete_row!, (Q, Int)),
+                (lu_crout, (Matrix{Float64},)),
+                (lu_crout!, (ModifiableLU{Float64, Matrix{Float64}}, Matrix{Float64})),
+                (qr_bcgs, (Matrix{Float64},)),
+                (qr_bcgs!, (Q, Matrix{Float64})),
             ]
         )
     end

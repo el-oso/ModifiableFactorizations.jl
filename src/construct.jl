@@ -83,8 +83,12 @@ Fast Rectangular Matrix Multiplication*, arXiv:1812.02056 (2018), Algorithm 1.
 """
 function cholesky_crout(
         A::AbstractMatrix{T}; s::Int = 64, uplo::Symbol = :L,
-        capacity::Int = 2size(A, 1), rankk! = default_rankk!
-    ) where {T}
+        capacity::Int = 2size(A, 1), rankk!::RK = default_rankk!
+    ) where {T, RK}
+    # `rankk!` is pinned to its own type parameter `RK`. Julia does not specialize a method on a
+    # function argument that it only passes on, so left bare the call into the kernel takes
+    # `rankk!` as an abstract `Function` and is not statically resolvable, which
+    # `juliac --trim=safe` rejects. The same holds for every `rankk!` and `matmul!` below.
     Base.require_one_based_indexing(A)
     n = LinearAlgebra.checksquare(A)
     s >= 1 || throw(ArgumentError(lazy"block size s must be at least 1, got $s"))
@@ -129,8 +133,8 @@ verbs, `issuccess(F)` does not reflect this, so `F` must be rebuilt rather than 
 """
 function cholesky_crout!(
         F::ModifiableCholesky{T}, A::AbstractMatrix{T}; s::Int = 64, uplo::Symbol = :L,
-        rankk! = default_rankk!
-    ) where {T}
+        rankk!::RK = default_rankk!
+    ) where {T, RK}
     Base.require_one_based_indexing(A)
     n = LinearAlgebra.checksquare(A)
     # `lazy"..."` rather than plain interpolation: two interpolated ArgumentErrors in one method
@@ -259,8 +263,8 @@ Fast Rectangular Matrix Multiplication*, arXiv:1812.02056 (2018), Algorithm 2.
 """
 function lu_crout(
         A::AbstractMatrix{T}; s::Int = 64, pivot = RowMaximum(),
-        rtol::Real = 0, matmul! = mul!
-    ) where {T}
+        rtol::Real = 0, matmul!::MF = mul!
+    ) where {T, MF}
     Base.require_one_based_indexing(A)
     n = LinearAlgebra.checksquare(A)
     s >= 1 || throw(ArgumentError(lazy"block size s must be at least 1, got $s"))
@@ -295,8 +299,8 @@ On `ZeroPivotException`, `F`'s storage has already been partially overwritten; `
 """
 function lu_crout!(
         F::ModifiableLU{T}, A::AbstractMatrix{T}; s::Int = 64, pivot = RowMaximum(),
-        rtol::Real = 0, matmul! = mul!
-    ) where {T}
+        rtol::Real = 0, matmul!::MF = mul!
+    ) where {T, MF}
     Base.require_one_based_indexing(A)
     n = LinearAlgebra.checksquare(A)
     # lazy"..." here for the same reason as in cholesky_crout!: plain interpolation in two
@@ -412,8 +416,8 @@ Gram-Schmidt orthogonalization process*, Computers and Mathematics with Applicat
 """
 function qr_bcgs(
         A::AbstractMatrix{T}; s::Int = 64, reorth::Bool = true, rtol::Real = 0,
-        capacity::Tuple{Integer, Integer} = (2size(A, 1), 2size(A, 2)), matmul! = mul!
-    ) where {T}
+        capacity::Tuple{Integer, Integer} = (2size(A, 1), 2size(A, 2)), matmul!::MF = mul!
+    ) where {T, MF}
     Base.require_one_based_indexing(A)
     m, n = size(A)
     m >= n || throw(DimensionMismatch(lazy"A is $m by $n; qr_bcgs requires m >= n"))
