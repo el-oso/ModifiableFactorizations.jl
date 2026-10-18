@@ -5,8 +5,10 @@ using LinearAlgebra: givensAlgorithm, Givens, PosDefException, ZeroPivotExceptio
 import LinearAlgebra: lowrankupdate!, lowrankdowndate!, ldiv!, logdet, det
 using TypeContracts
 # `@strict` (type-stability + no owned-scratch dictionary lookups + allocation-freedom) guards
-# the QR, Cholesky and LU rank-1 kernels below. A guarded call is itself type stable and
-# allocation-free, so the verbs that host one keep both guarantees with checks enabled.
+# the QR, Cholesky and LU rank-1 kernels below. Its checks run once per call site and argument
+# signature, so a guarded verb allocates nothing when it runs. The guard's branch is still part
+# of the enclosing verb's compiled body, and a static allocation proof reads every branch, so
+# the verbs are proven allocation-free with checks disabled and the kernels with them enabled.
 using StrictMode
 
 export ModifiableCholesky, ModifiableLU, ModifiableQR
